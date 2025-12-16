@@ -1806,8 +1806,8 @@
                         ></div>
                     )}
 
-                    <aside className={`w-64 bg-white border-r h-screen fixed left-0 top-0 z-40 flex flex-col shadow-sm no-print transform transition-transform duration-300 ease-in-out md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:static md:translate-x-0`}>
-                        <div className="h-16 flex items-center px-6 border-b">
+                    <aside className={`w-64 bg-white border-r h-screen fixed left-0 top-0 z-40 flex flex-col shadow-sm no-print transform transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+                        <div className="h-16 flex items-center px-4 sm:px-6 border-b">
                             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white mr-3 font-bold">S</div>
                             <h1 className="font-bold text-lg">SIBA Admin</h1>
                             {/* Close button for mobile */}
@@ -1818,7 +1818,7 @@
                                 <Icon name="X" size={20} />
                             </button>
                         </div>
-                        <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
+                        <nav className="py-3 px-3 sm:px-4 space-y-1 flex-1 overflow-y-auto">
                             {menus.map(m => (
                                 <button
                                     key={m.id}
@@ -1829,12 +1829,12 @@
                                             setSidebarOpen(false);
                                         }
                                     }}
-                                    className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all", view === m.id || view.startsWith(m.id) ? "bg-primary text-white shadow-md shadow-primary/20" : "text-slate-600 hover:bg-slate-50")}>
+                                    className={cn("w-full flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg sm:rounded-xl text-sm font-medium transition-all", view === m.id || view.startsWith(m.id) ? "bg-primary text-white shadow-md shadow-primary/20" : "text-slate-600 hover:bg-slate-50")}>
                                     <Icon name={m.icon} size={18}/> {m.label}
                                 </button>
                             ))}
                         </nav>
-                        <div className="p-4 border-t bg-slate-50">
+                        <div className="p-3 sm:p-4 border-t bg-slate-50">
                             <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-1">
                                 <span>Status Database</span>
                                 <span className={cn("w-2 h-2 rounded-full", isSyncing ? "bg-yellow-400 animate-pulse" : isConnected ? "bg-green-500" : "bg-red-500")}></span>
@@ -1895,7 +1895,7 @@
 
                     {!isQrView && <Sidebar view={view} setView={setView} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
 
-                    <main className={`flex-1 ${!isQrView ? 'md:ml-64' : ''} p-4 sm:p-6 md:p-8 overflow-y-auto h-screen transition-all duration-300`}>
+                    <main className={`flex-1 ${!isQrView ? 'md:ml-64' : ''} p-3 sm:p-4 md:p-6 lg:p-8 overflow-y-auto h-screen transition-all duration-300`}>
                         {isRoomQrView ? (
                             <QrInventoryView />
                         ) : isItemQrView ? (
