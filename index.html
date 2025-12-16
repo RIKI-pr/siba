@@ -1378,7 +1378,7 @@
 
             // Separate effect to trigger data fetch if needed
             useEffect(() => {
-                if (roomId !== null && (!data.rooms || data.rooms.length === 0)) {
+                if (roomId && roomId !== null && roomId !== 'null' && (!data.rooms || data.rooms.length === 0)) {
                     console.log('No room data found, triggering data fetch...');
                     fetchData();
                 }
@@ -1393,20 +1393,31 @@
                     console.log('Item data length:', data.items ? data.items.length : 0);
 
                     // Use multiple matching strategies to handle different ID formats
-                    let foundRoom = data.rooms.find(r => {
-                        // Strategy 1: Exact numeric match
-                        const roomIdNum = typeof r.id === 'string' ? parseInt(r.id) : r.id;
-                        const targetRoomId = typeof roomId === 'string' ? parseInt(roomId) : roomId;
-                        if (roomIdNum === targetRoomId) return true;
+                    let foundRoom = null;
+                    try {
+                        foundRoom = data.rooms.find(r => {
+                            try {
+                                // Strategy 1: String comparison (primary)
+                                if (String(r.id) === String(roomId)) return true;
 
-                        // Strategy 2: String comparison (in case of leading zeros)
-                        if (String(r.id) === String(roomId)) return true;
+                                // Strategy 2: Exact numeric match for smaller numbers
+                                const roomIdNum = typeof r.id === 'string' ? parseInt(r.id) : r.id;
+                                const targetRoomId = typeof roomId === 'string' ? parseInt(roomId) : roomId;
+                                if (!isNaN(roomIdNum) && !isNaN(targetRoomId) && roomIdNum === targetRoomId) return true;
 
-                        // Strategy 3: Compare as strings after removing leading zeros
-                        const rIdStr = String(r.id).replace(/^0+/, '');
-                        const targetIdStr = String(roomId).replace(/^0+/, '');
-                        return rIdStr === targetIdStr;
-                    });
+                                // Strategy 3: Compare as strings after removing leading zeros
+                                const rIdStr = String(r.id).replace(/^0+/, '');
+                                const targetIdStr = String(roomId).replace(/^0+/, '');
+                                return rIdStr === targetIdStr;
+                            } catch (e) {
+                                console.error('Error comparing room IDs:', e);
+                                return false;
+                            }
+                        });
+                    } catch (e) {
+                        console.error('Error finding room:', e);
+                        foundRoom = null;
+                    }
 
                     console.log('Found room:', foundRoom);
 
@@ -1417,27 +1428,48 @@
                         const roomItems = Array.isArray(foundRoom.items) ? foundRoom.items : [];
 
                         // Get detailed item information for this room
-                        const detailedItems = roomItems.map(ri => {
-                            // Handle both numeric and string item IDs
-                            if (!ri || typeof ri !== 'object') return null; // Skip if not an object
+                        let detailedItems = [];
+                        try {
+                            detailedItems = roomItems.map(ri => {
+                                try {
+                                    // Handle both numeric and string item IDs
+                                    if (!ri || typeof ri !== 'object') return null; // Skip if not an object
 
-                            const itemId = ri.itemId; // Keep original type first
-                            // Handle both numeric and string item IDs
-                            const normalizedItemId = typeof itemId === 'string' ? parseInt(itemId) : itemId;
+                                    const itemId = ri.itemId; // Keep original type first
 
-                            const item = data.items.find(i => {
-                                const iId = typeof i.id === 'string' ? parseInt(i.id) : i.id;
-                                return iId === normalizedItemId;
-                            });
+                                    const item = data.items.find(i => {
+                                        try {
+                                            // Primary strategy: string comparison
+                                            if (String(i.id) === String(itemId)) return true;
 
-                            if (item && item.id) {
-                                return {
-                                    ...item,
-                                    qtyInRoom: ri.qty || ri.quantity || 1 // Support both qty and quantity properties, default to 1
-                                };
-                            }
-                            return null;
-                        }).filter(Boolean);
+                                            // Fallback: numeric comparison for smaller numbers
+                                            const iId = typeof i.id === 'string' ? parseInt(i.id) : i.id;
+                                            const targetItemId = typeof itemId === 'string' ? parseInt(itemId) : itemId;
+                                            if (!isNaN(iId) && !isNaN(targetItemId) && iId === targetItemId) return true;
+
+                                            return false;
+                                        } catch (e) {
+                                            console.error('Error comparing item IDs:', e);
+                                            return false;
+                                        }
+                                    });
+
+                                    if (item && item.id) {
+                                        return {
+                                            ...item,
+                                            qtyInRoom: ri.qty || ri.quantity || 1 // Support both qty and quantity properties, default to 1
+                                        };
+                                    }
+                                    return null;
+                                } catch (e) {
+                                    console.error('Error processing room item:', e);
+                                    return null;
+                                }
+                            }).filter(Boolean);
+                        } catch (e) {
+                            console.error('Error mapping room items:', e);
+                            detailedItems = [];
+                        }
 
                         console.log('Detailed items:', detailedItems);
                         setItems(detailedItems);
@@ -1609,7 +1641,7 @@
 
             // Separate effect to trigger data fetch if needed
             useEffect(() => {
-                if (itemId !== null && (!data.items || data.items.length === 0)) {
+                if (itemId && itemId !== null && itemId !== 'null' && (!data.items || data.items.length === 0)) {
                     console.log('No item data found, triggering data fetch...');
                     fetchData();
                 }
@@ -1623,20 +1655,31 @@
                     console.log('Item data length:', data.items ? data.items.length : 0);
 
                     // Use multiple matching strategies to handle different ID formats
-                    let foundItem = data.items.find(i => {
-                        // Strategy 1: Exact numeric match
-                        const itemIdNum = typeof i.id === 'string' ? parseInt(i.id) : i.id;
-                        const targetItemId = typeof itemId === 'string' ? parseInt(itemId) : itemId;
-                        if (itemIdNum === targetItemId) return true;
+                    let foundItem = null;
+                    try {
+                        foundItem = data.items.find(i => {
+                            try {
+                                // Strategy 1: String comparison (primary)
+                                if (String(i.id) === String(itemId)) return true;
 
-                        // Strategy 2: String comparison (in case of leading zeros)
-                        if (String(i.id) === String(itemId)) return true;
+                                // Strategy 2: Exact numeric match for smaller numbers
+                                const itemIdNum = typeof i.id === 'string' ? parseInt(i.id) : i.id;
+                                const targetItemId = typeof itemId === 'string' ? parseInt(itemId) : itemId;
+                                if (!isNaN(itemIdNum) && !isNaN(targetItemId) && itemIdNum === targetItemId) return true;
 
-                        // Strategy 3: Compare as strings after removing leading zeros
-                        const iIdStr = String(i.id).replace(/^0+/, '');
-                        const targetIdStr = String(itemId).replace(/^0+/, '');
-                        return iIdStr === targetIdStr;
-                    });
+                                // Strategy 3: Compare as strings after removing leading zeros
+                                const iIdStr = String(i.id).replace(/^0+/, '');
+                                const targetIdStr = String(itemId).replace(/^0+/, '');
+                                return iIdStr === targetIdStr;
+                            } catch (e) {
+                                console.error('Error comparing item IDs:', e);
+                                return false;
+                            }
+                        });
+                    } catch (e) {
+                        console.error('Error finding item:', e);
+                        foundItem = null;
+                    }
 
                     console.log('Found item:', foundItem);
 
