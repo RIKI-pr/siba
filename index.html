@@ -1783,7 +1783,7 @@
         };
 
         // --- MAIN SHELL ---
-        const Sidebar = ({ view, setView }) => {
+        const Sidebar = ({ view, setView, sidebarOpen, setSidebarOpen }) => {
             const menus = [
                 { id: 'dashboard', label: 'Dashboard', icon: 'Dashboard' },
                 { id: 'inventory', label: 'Data Barang', icon: 'Package' },
@@ -1793,27 +1793,56 @@
                 { id: 'reports', label: 'Laporan', icon: 'FileText' },
                 { id: 'settings', label: 'Pengaturan', icon: 'Settings' }
             ];
-            
+
             const { isConnected, isSyncing } = useContext(AppContext);
 
             return (
-                <aside className="w-64 bg-white border-r h-screen fixed left-0 top-0 hidden md:flex flex-col z-20 shadow-sm no-print">
-                    <div className="h-16 flex items-center px-6 border-b"><div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white mr-3 font-bold">S</div><h1 className="font-bold text-lg">SIBA Admin</h1></div>
-                    <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
-                        {menus.map(m => (
-                            <button key={m.id} onClick={() => setView(m.id)} className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all", view === m.id || view.startsWith(m.id) ? "bg-primary text-white shadow-md shadow-primary/20" : "text-slate-600 hover:bg-slate-50")}>
-                                <Icon name={m.icon} size={18}/> {m.label}
+                <>
+                    {/* Overlay for mobile */}
+                    {sidebarOpen && (
+                        <div
+                            className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+                            onClick={() => setSidebarOpen(false)}
+                        ></div>
+                    )}
+
+                    <aside className={`w-64 bg-white border-r h-screen fixed left-0 top-0 z-40 flex flex-col shadow-sm no-print transform transition-transform duration-300 ease-in-out md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:static md:translate-x-0`}>
+                        <div className="h-16 flex items-center px-6 border-b">
+                            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white mr-3 font-bold">S</div>
+                            <h1 className="font-bold text-lg">SIBA Admin</h1>
+                            {/* Close button for mobile */}
+                            <button
+                                className="md:hidden text-slate-400 hover:text-slate-600 ml-auto"
+                                onClick={() => setSidebarOpen(false)}
+                            >
+                                <Icon name="X" size={20} />
                             </button>
-                        ))}
-                    </nav>
-                    <div className="p-4 border-t bg-slate-50">
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-1">
-                            <span>Status Database</span>
-                            <span className={cn("w-2 h-2 rounded-full", isSyncing ? "bg-yellow-400 animate-pulse" : isConnected ? "bg-green-500" : "bg-red-500")}></span>
                         </div>
-                        <p className="text-[10px] text-slate-400">{isSyncing ? "Menyimpan..." : isConnected ? "Terhubung" : "Offline"}</p>
-                    </div>
-                </aside>
+                        <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
+                            {menus.map(m => (
+                                <button
+                                    key={m.id}
+                                    onClick={() => {
+                                        setView(m.id);
+                                        // Close sidebar on mobile after selection
+                                        if (window.innerWidth < 768) {
+                                            setSidebarOpen(false);
+                                        }
+                                    }}
+                                    className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all", view === m.id || view.startsWith(m.id) ? "bg-primary text-white shadow-md shadow-primary/20" : "text-slate-600 hover:bg-slate-50")}>
+                                    <Icon name={m.icon} size={18}/> {m.label}
+                                </button>
+                            ))}
+                        </nav>
+                        <div className="p-4 border-t bg-slate-50">
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-1">
+                                <span>Status Database</span>
+                                <span className={cn("w-2 h-2 rounded-full", isSyncing ? "bg-yellow-400 animate-pulse" : isConnected ? "bg-green-500" : "bg-red-500")}></span>
+                            </div>
+                            <p className="text-[10px] text-slate-400">{isSyncing ? "Menyimpan..." : isConnected ? "Terhubung" : "Offline"}</p>
+                        </div>
+                    </aside>
+                </>
             );
         };
 
@@ -1828,6 +1857,7 @@
         const MainContent = () => {
             const [view, setView] = useState('dashboard');
             const [detailItem, setDetailItem] = useState(null);
+            const [sidebarOpen, setSidebarOpen] = useState(false); // For mobile responsiveness
 
             // Check if this is a QR scan view (URL has room or item hash)
             const [hash, setHash] = useState(window.location.hash);
@@ -1853,8 +1883,19 @@
 
             return (
                 <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
-                    {!isQrView && <Sidebar view={view} setView={setView} />}
-                    <main className={`flex-1 ${!isQrView ? 'md:ml-64' : ''} p-8 overflow-y-auto h-screen`}>
+                    {/* Mobile menu button - visible only on small screens */}
+                    {!isQrView && (
+                        <button
+                            onClick={() => setSidebarOpen(!sidebarOpen)}
+                            className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-primary text-white shadow-lg"
+                        >
+                            <Icon name="Menu" size={20} />
+                        </button>
+                    )}
+
+                    {!isQrView && <Sidebar view={view} setView={setView} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
+
+                    <main className={`flex-1 ${!isQrView ? 'md:ml-64' : ''} p-4 sm:p-6 md:p-8 overflow-y-auto h-screen transition-all duration-300`}>
                         {isRoomQrView ? (
                             <QrInventoryView />
                         ) : isItemQrView ? (
