@@ -303,10 +303,13 @@
         };
 
         // --- DESKTOP HEADER ---
-        const DesktopHeader = () => {
+        const DesktopHeader = ({ toggleSidebar }) => {
             const { isConnected, isSyncing } = useContext(AppContext);
             return (
-                <header className="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-end px-8 sticky top-0 z-20 no-print">
+                <header className="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-6 sticky top-0 z-20 no-print">
+                    <button onClick={toggleSidebar} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 transition-colors">
+                        <Icon name="Menu" size={24}/>
+                    </button>
                     <div className="flex items-center gap-6">
                         <div className="flex items-center gap-2">
                             <span className={cn("w-2.5 h-2.5 rounded-full", isSyncing ? "bg-yellow-400 animate-pulse" : isConnected ? "bg-emerald-500" : "bg-red-500")}></span>
@@ -332,7 +335,7 @@
             const [search, setSearch] = useState("");
             const [activeFilters, setActiveFilters] = useState({});
             const [page, setPage] = useState(1);
-            const [itemsPerPage, setItemsPerPage] = useState(10); 
+            const [itemsPerPage, setItemsPerPage] = useState(10); // State for dynamic pagination
 
             // Initialize Filters
             useEffect(() => {
@@ -349,10 +352,12 @@
             const safeData = Array.isArray(data) ? data : [];
 
             const filteredData = safeData.filter(item => {
+                // 1. Text Search
                 const matchesSearch = Object.values(item).some(val =>
                     String(val || "").toLowerCase().includes(search.toLowerCase())
                 );
                 
+                // 2. Apply Custom Filters
                 let matchesFilters = true;
                 for (const def of filterDefs) {
                     const selectedValue = activeFilters[def.key];
@@ -365,6 +370,7 @@
                         }
                     }
                 }
+
                 return matchesSearch && matchesFilters;
             });
 
@@ -1008,6 +1014,204 @@
             );
         };
 
+        const KIRModule = () => {
+            const { data, updateData, syncData } = useContext(AppContext);
+            const [roomView, setRoomView] = useState(null);
+            const [showAddRoom, setShowAddRoom] = useState(false);
+            const [formRoom, setFormRoom] = useState({});
+            const [addItemModal, setAddItemModal] = useState(false);
+            const [selectedItem, setSelectedItem] = useState("");
+            const [qtyToAdd, setQtyToAdd] = useState(1);
+            const [labelView, setLabelView] = useState(false);
+            const [qrView, setQrView] = useState(false);
+
+            const handleAddRoom = () => { 
+                const newRooms = [...data.rooms, { ...formRoom, id: Date.now(), items: [] }];
+                updateData('rooms', newRooms); 
+                syncData('SYNC_ALL', { ...data, rooms: newRooms });
+                setShowAddRoom(false); 
+            };
+            
+            const addItemToRoom = () => {
+                if(!selectedItem) return;
+                const roomIdx = data.rooms.findIndex(r => r.id === roomView.id);
+                const updatedRooms = [...data.rooms];
+                updatedRooms[roomIdx].items.push({ itemId: parseInt(selectedItem), qty: parseInt(qtyToAdd) });
+                updateData('rooms', updatedRooms);
+                syncData('SYNC_ALL', { ...data, rooms: updatedRooms });
+                setRoomView(updatedRooms[roomIdx]); setAddItemModal(false);
+            };
+
+            const removeRoomItem = (itemId) => {
+                if(!confirm("Hapus barang dari ruangan?")) return;
+                const roomIdx = data.rooms.findIndex(r => r.id === roomView.id);
+                const updatedRooms = [...data.rooms];
+                updatedRooms[roomIdx].items = updatedRooms[roomIdx].items.filter(i => i.itemId !== itemId);
+                updateData('rooms', updatedRooms);
+                syncData('SYNC_ALL', { ...data, rooms: updatedRooms });
+                setRoomView(updatedRooms[roomIdx]);
+            }
+
+            // --- Sub-View: Label Printing ---
+            const LabelView = () => {
+                useEffect(() => {
+                    setTimeout(() => {
+                        let idx = 0;
+                        roomView.items.forEach(ri => {
+                            const item = data.items.find(i => i.id === ri.itemId);
+                            if(item) {
+                                for(let i=0; i<ri.qty; i++) {
+                                    new QRious({ element: document.getElementById(`lbl-qr-${idx}`), value: `${window.location.origin}${window.location.pathname}#item-${item.id}`, size: 80 });
+                                    idx++;
+                                }
+                            }
+                        });
+                    }, 500);
+                }, []);
+
+                let allLabels = [];
+                roomView.items.forEach(ri => {
+                    const item = data.items.find(i => i.id === ri.itemId);
+                    if(item) {
+                        for(let i=1; i<=ri.qty; i++) allLabels.push({ ...item, num: `${i}/${ri.qty}` });
+                    }
+                });
+
+                return (
+                    <div className="bg-white min-h-screen p-4 absolute inset-0 z-50 overflow-y-auto">
+                        <div className="flex justify-between mb-4 no-print sticky top-0 bg-white p-2 border-b">
+                            <h2 className="font-bold">Cetak Label ({allLabels.length})</h2>
+                            <div className="flex gap-2"><Button variant="outline" onClick={()=>setLabelView(false)}>Kembali</Button><Button onClick={()=>window.print()}>Print</Button></div>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 print:gap-1">
+                            {allLabels.map((l, i) => (
+                                <div key={i} className="border border-black p-2 h-28 flex gap-2 break-inside-avoid relative">
+                                    <canvas id={`lbl-qr-${i}`} className="w-20 h-20"></canvas>
+                                    <div className="flex-1 overflow-hidden">
+                                        <div className="bg-black text-white text-[8px] font-bold px-1 inline-block mb-1">SATPEL PVP JAMBI</div>
+                                        <p className="text-[10px] font-bold leading-tight uppercase truncate">{l.name}</p>
+                                        <p className="text-[8px] font-mono mt-1">{l.code}</p>
+                                        <div className="absolute bottom-1 right-1 text-[8px] font-bold bg-gray-200 px-1">{roomView.name} - {l.num}</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            };
+
+            // --- Sub-View: Room QR ---
+            const QrRoomView = () => {
+                useEffect(() => {
+                    setTimeout(() => {
+                        const canvas = document.getElementById('room-qr-canvas');
+                        if (canvas) {
+                            new QRious({ element: canvas, value: `${window.location.origin}${window.location.pathname}#room-${roomView.id}`, size: 256 });
+                        }
+                    }, 300);
+                }, []);
+                
+                return (
+                    <div className="bg-white min-h-screen p-8 absolute inset-0 z-50 flex flex-col items-center justify-center">
+                        <div className="no-print absolute top-4 right-4 flex gap-2">
+                            <Button variant="outline" onClick={()=>setQrView(false)}>Kembali</Button>
+                            <Button onClick={()=>window.print()}>Print</Button>
+                        </div>
+                        <div className="border-4 border-black p-8 text-center max-w-md w-full">
+                            <h2 className="text-2xl font-black mb-4 uppercase">KARTU INVENTARIS RUANGAN</h2>
+                            <h3 className="text-xl font-bold mb-8">{roomView.name}</h3>
+                            <div className="flex justify-center mb-8"><canvas id="room-qr-canvas" className="w-64 h-64"></canvas></div>
+                            <p className="font-mono text-sm">Scan untuk melihat daftar inventaris</p>
+                            <div className="mt-8 text-left text-sm border-t pt-4">
+                                <p><b>Kode Ruangan:</b> {roomView.code}</p>
+                                <p><b>PIC:</b> {roomView.pic}</p>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            if (labelView) return <LabelView />;
+            if (qrView) return <QrRoomView />;
+
+            if (roomView) {
+                return (
+                    <div className="space-y-6 animate-enter">
+                        <div className="flex items-center gap-4"><Button variant="outline" className="px-3" onClick={()=>setRoomView(null)}><Icon name="ArrowLeft"/></Button><h2 className="text-xl sm:text-2xl font-bold truncate">{roomView.name}</h2></div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <Card className="p-6 space-y-4">
+                                <h3 className="font-bold border-b pb-2">Info Ruangan</h3>
+                                <p className="text-sm"><b>Kode:</b> {roomView.code || "-"}</p>
+                                <p className="text-sm"><b>PIC:</b> {roomView.pic}</p>
+                                <div className="flex flex-col gap-2 mt-4">
+                                    <Button variant="outline" size="sm" onClick={()=>setQrView(true)}>Cetak QR Ruangan</Button>
+                                    <Button variant="outline" size="sm" onClick={()=>setLabelView(true)}>Cetak Label Barang</Button>
+                                </div>
+                            </Card>
+                            <Card className="md:col-span-2 p-6">
+                                <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+                                    <h3 className="font-bold">Daftar Barang</h3>
+                                    <Button size="sm" onClick={()=>setAddItemModal(true)}>+ Tambah</Button>
+                                </div>
+                                <div className="space-y-2">
+                                    {roomView.items.map((ri, i) => { 
+                                        const item = data.items.find(it => it.id === ri.itemId); 
+                                        return (
+                                            <div key={i} className="flex justify-between p-3 border rounded-lg hover:bg-slate-50 items-center">
+                                                <div className="overflow-hidden">
+                                                    <span className="font-bold block truncate">{item?.name || "Unknown"}</span>
+                                                    <span className="text-xs text-slate-500">{item?.code}</span>
+                                                </div>
+                                                <div className="flex items-center gap-3 shrink-0">
+                                                    <Badge color="blue">{ri.qty}</Badge>
+                                                    <button className="text-red-400 hover:text-red-600 p-1" onClick={()=>removeRoomItem(ri.itemId)}><Icon name="Trash" size={16}/></button>
+                                                </div>
+                                            </div>
+                                        ) 
+                                    })}
+                                    {roomView.items.length === 0 && <p className="text-slate-400 italic text-sm text-center py-4">Ruangan kosong.</p>}
+                                </div>
+                            </Card>
+                        </div>
+                        <Modal isOpen={addItemModal} onClose={()=>setAddItemModal(false)} title="Tambah ke Ruangan">
+                            <div className="space-y-4">
+                                <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Pilih Barang</label><select className="w-full h-10 border rounded-lg px-2 text-sm bg-white" onChange={e=>setSelectedItem(e.target.value)}><option value="">-- Pilih --</option>{data.items.map(i => <option key={i.id} value={i.id}>{i.name} (Sisa: {i.stock})</option>)}</select></div>
+                                <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Jumlah</label><Input type="number" value={qtyToAdd} onChange={e=>setQtyToAdd(e.target.value)} placeholder="Jumlah"/></div>
+                                <Button className="w-full mt-4" onClick={addItemToRoom}>Tambahkan</Button>
+                            </div>
+                        </Modal>
+                    </div>
+                )
+            }
+            return (
+                <div className="space-y-6 animate-enter">
+                    <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-slate-800">KIR & Ruangan</h2><Button onClick={()=>setShowAddRoom(true)} className="px-3"><Icon name="Plus"/><span className="hidden sm:inline"> Ruangan Baru</span></Button></div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                        {data.rooms.map(r => (
+                            <Card key={r.id} className="p-6 hover:shadow-lg transition-all cursor-pointer group active:scale-[0.98]" onClick={()=>{setRoomView(r)}}>
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-primary shrink-0"><Icon name="Building" size={24}/></div>
+                                    <div className="overflow-hidden">
+                                        <h3 className="font-bold text-lg truncate">{r.name}</h3>
+                                        <p className="text-xs text-slate-500 truncate">{r.pic}</p>
+                                    </div>
+                                </div>
+                                <div className="text-center p-2 bg-slate-50 rounded font-bold text-sm text-slate-600">{r.items.length} Jenis Barang</div>
+                            </Card>
+                        ))}
+                    </div>
+                    <Modal isOpen={showAddRoom} onClose={()=>setShowAddRoom(false)} title="Buat Ruangan">
+                        <div className="space-y-4">
+                            <Input placeholder="Nama Ruangan" onChange={e=>setForm({...form, name:e.target.value})}/>
+                            <Input placeholder="Kode Ruangan" onChange={e=>setForm({...form, code:e.target.value})}/>
+                            <Input placeholder="Penanggung Jawab" onChange={e=>setForm({...form, pic:e.target.value})}/>
+                            <Button className="w-full mt-2" onClick={handleAddRoom}>Simpan</Button>
+                        </div>
+                    </Modal>
+                </div>
+            );
+        };
+
         const CreateLoan = ({ onBack, setView }) => {
             const { data, updateData, getAvailableStock, addLog, syncData } = useContext(AppContext);
             const [cart, setCart] = useState([]);
@@ -1224,7 +1428,7 @@
         };
 
         // --- MAIN SHELL ---
-        const Sidebar = ({ view, setView, open, setOpen }) => {
+        const Sidebar = ({ view, setView, open, setOpen, desktopOpen }) => {
             const menus = [
                 { id: 'dashboard', label: 'Dashboard', icon: 'Dashboard' },
                 { id: 'inventory', label: 'Data Barang', icon: 'Package' },
@@ -1247,8 +1451,9 @@
                     )}
 
                     <aside className={cn(
-                        "w-64 bg-slate-900 text-white h-screen fixed left-0 top-0 z-50 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out md:translate-x-0",
-                        open ? "translate-x-0" : "-translate-x-full"
+                        "w-64 bg-slate-900 text-white h-screen fixed left-0 top-0 z-50 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out",
+                        open ? "translate-x-0" : "-translate-x-full", // Mobile logic
+                        desktopOpen ? "md:translate-x-0" : "md:-translate-x-full" // Desktop logic
                     )}>
                         <div className="h-16 flex items-center px-6 border-b border-slate-800 shrink-0">
                             <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center mr-3 font-bold text-lg">S</div>
@@ -1268,7 +1473,7 @@
                                 </button>
                             ))}
                         </nav>
-                        <div className="p-4 border-t border-slate-800 bg-slate-900 shrink-0 md:hidden">
+                        <div className="p-4 border-t border-slate-800 bg-slate-900 shrink-0">
                             <div className="flex items-center justify-between text-xs mb-1">
                                 <span className="text-slate-500">Status System</span>
                                 <div className="flex items-center gap-2">
@@ -1286,6 +1491,7 @@
             const [view, setView] = useState('dashboard');
             const [detailItem, setDetailItem] = useState(null);
             const [sidebarOpen, setSidebarOpen] = useState(false);
+            const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
             const [qrData, setQrData] = useState(null); // { type: 'room'|'item', id: '...' }
 
             useEffect(() => {
@@ -1304,12 +1510,12 @@
             if (qrData?.type === 'item') return <QrItemView id={qrData.id} />;
 
             return (
-                <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
-                    <Sidebar view={view} setView={setView} open={sidebarOpen} setOpen={setSidebarOpen} />
+                <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden">
+                    <Sidebar view={view} setView={setView} open={sidebarOpen} setOpen={setSidebarOpen} desktopOpen={desktopSidebarOpen} />
                     
-                    <main className="flex-1 md:ml-64 transition-all duration-300 flex flex-col min-h-screen w-full">
+                    <main className={cn("flex-1 transition-all duration-300 flex flex-col min-h-screen w-full", desktopSidebarOpen ? "md:ml-64" : "md:ml-0")}>
                         {/* Desktop Header */}
-                        <DesktopHeader />
+                        <DesktopHeader toggleSidebar={() => setDesktopSidebarOpen(!desktopSidebarOpen)} />
 
                         {/* Mobile Header */}
                         <header className="md:hidden h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sticky top-0 z-30 shadow-sm no-print">
