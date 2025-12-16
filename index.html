@@ -64,6 +64,9 @@
         }
         .print-only { display: none; }
         input, select, textarea { font-size: 16px !important; } /* Prevent iOS zoom */
+        
+        /* Force smaller text in selects specifically */
+        select.small-text { font-size: 11px !important; }
     </style>
 </head>
 <body>
@@ -329,7 +332,7 @@
             const [search, setSearch] = useState("");
             const [activeFilters, setActiveFilters] = useState({});
             const [page, setPage] = useState(1);
-            const [itemsPerPage, setItemsPerPage] = useState(10); // State for dynamic pagination
+            const [itemsPerPage, setItemsPerPage] = useState(10); 
 
             // Initialize Filters
             useEffect(() => {
@@ -346,12 +349,10 @@
             const safeData = Array.isArray(data) ? data : [];
 
             const filteredData = safeData.filter(item => {
-                // 1. Text Search
                 const matchesSearch = Object.values(item).some(val =>
                     String(val || "").toLowerCase().includes(search.toLowerCase())
                 );
                 
-                // 2. Apply Custom Filters
                 let matchesFilters = true;
                 for (const def of filterDefs) {
                     const selectedValue = activeFilters[def.key];
@@ -364,7 +365,6 @@
                         }
                     }
                 }
-
                 return matchesSearch && matchesFilters;
             });
 
@@ -390,10 +390,10 @@
                             <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                                 {filterDefs.map(def => (
                                     <div key={def.key} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                                        <label className="text-xs font-bold text-slate-500 uppercase sm:hidden md:block">{def.label}:</label>
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase sm:hidden md:block">{def.label}:</label>
                                         <div className="relative">
                                             <select 
-                                                className="appearance-none h-10 w-full sm:w-40 pl-3 pr-8 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all cursor-pointer"
+                                                className="appearance-none h-7 w-full sm:w-28 pl-2 pr-6 rounded-lg border border-slate-200 bg-white text-[10px] font-medium text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all cursor-pointer py-1 small-text"
                                                 value={activeFilters[def.key] || 'all'}
                                                 onChange={e => handleFilterChange(def.key, e.target.value)}
                                             >
@@ -401,7 +401,7 @@
                                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                                                 ))}
                                             </select>
-                                            <Icon name="ChevronDown" className="absolute right-2 top-3 text-slate-400 pointer-events-none" size={16}/>
+                                            <Icon name="ChevronDown" className="absolute right-2 top-2 text-slate-400 pointer-events-none" size={12}/>
                                         </div>
                                     </div>
                                 ))}
@@ -454,10 +454,10 @@
                         {/* Footer: Pagination & Limit Selector */}
                         <div className="p-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 no-print">
                             <div className="flex items-center gap-3">
-                                <span className="text-xs font-medium text-slate-500">Tampilkan</span>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase">Tampilkan</span>
                                 <div className="relative">
                                     <select 
-                                        className="appearance-none h-8 pl-3 pr-8 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none cursor-pointer"
+                                        className="appearance-none h-7 pl-2 pr-6 rounded-lg border border-slate-200 bg-white text-[10px] font-medium text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none cursor-pointer py-1 small-text"
                                         value={itemsPerPage}
                                         onChange={e => { setItemsPerPage(Number(e.target.value)); setPage(1); }}
                                     >
@@ -466,9 +466,9 @@
                                         <option value={50}>50</option>
                                         <option value={100}>100</option>
                                     </select>
-                                    <Icon name="ChevronDown" className="absolute right-2 top-2 text-slate-400 pointer-events-none" size={14}/>
+                                    <Icon name="ChevronDown" className="absolute right-2 top-2 text-slate-400 pointer-events-none" size={12}/>
                                 </div>
-                                <span className="text-xs font-medium text-slate-500">data. Hal {page} dari {totalPages || 1}</span>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase">data. Hal {page} dari {totalPages || 1}</span>
                             </div>
                             
                             {totalPages > 1 && (
@@ -713,20 +713,16 @@
                 { 
                     header: "Aksi", 
                     render: r => (
-                        <div className="flex gap-2 justify-center">
-                            <Button 
-                                size="sm" 
-                                variant="secondary" 
-                                className="h-8 w-8 p-0 border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800 shadow-sm" 
+                        <div className="flex gap-2 justify-center items-center">
+                            <button 
+                                className="h-8 w-8 p-0 border border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800 shadow-sm transition-colors flex items-center justify-center bg-white rounded-lg" 
                                 title="Detail" 
                                 onClick={() => { setDetailItem(r); setView('inventory-detail'); }}
                             >
                                 <Icon name="Eye" size={16}/>
-                            </Button>
-                            <Button 
-                                size="sm" 
-                                variant="danger" 
-                                className="h-8 w-8 p-0 bg-white border border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600 shadow-sm" 
+                            </button>
+                            <button 
+                                className="h-8 w-8 p-0 border border-red-200 text-red-600 hover:bg-red-50 hover:text-red-800 shadow-sm transition-colors flex items-center justify-center bg-white rounded-lg" 
                                 title="Hapus" 
                                 onClick={(e) => {
                                      e.stopPropagation();
@@ -738,10 +734,10 @@
                                 }}
                             >
                                 <Icon name="Trash" size={16}/>
-                            </Button>
+                            </button>
                         </div>
                     ),
-                    className: "w-24 text-center align-top"
+                    className: "w-24 text-center align-top no-print"
                 }
             ];
 
@@ -1006,204 +1002,6 @@
                                 <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Harga</label><Input type="number" value={editForm.price || ''} onChange={e => setEditForm({...editForm, price: e.target.value})} /></div>
                             </div>
                             <Button className="w-full mt-4" onClick={handleUpdate}>Simpan Perubahan</Button>
-                        </div>
-                    </Modal>
-                </div>
-            );
-        };
-
-        const KIRModule = () => {
-            const { data, updateData, syncData } = useContext(AppContext);
-            const [roomView, setRoomView] = useState(null);
-            const [showAddRoom, setShowAddRoom] = useState(false);
-            const [formRoom, setFormRoom] = useState({});
-            const [addItemModal, setAddItemModal] = useState(false);
-            const [selectedItem, setSelectedItem] = useState("");
-            const [qtyToAdd, setQtyToAdd] = useState(1);
-            const [labelView, setLabelView] = useState(false);
-            const [qrView, setQrView] = useState(false);
-
-            const handleAddRoom = () => { 
-                const newRooms = [...data.rooms, { ...formRoom, id: Date.now(), items: [] }];
-                updateData('rooms', newRooms); 
-                syncData('SYNC_ALL', { ...data, rooms: newRooms });
-                setShowAddRoom(false); 
-            };
-            
-            const addItemToRoom = () => {
-                if(!selectedItem) return;
-                const roomIdx = data.rooms.findIndex(r => r.id === roomView.id);
-                const updatedRooms = [...data.rooms];
-                updatedRooms[roomIdx].items.push({ itemId: parseInt(selectedItem), qty: parseInt(qtyToAdd) });
-                updateData('rooms', updatedRooms);
-                syncData('SYNC_ALL', { ...data, rooms: updatedRooms });
-                setRoomView(updatedRooms[roomIdx]); setAddItemModal(false);
-            };
-
-            const removeRoomItem = (itemId) => {
-                if(!confirm("Hapus barang dari ruangan?")) return;
-                const roomIdx = data.rooms.findIndex(r => r.id === roomView.id);
-                const updatedRooms = [...data.rooms];
-                updatedRooms[roomIdx].items = updatedRooms[roomIdx].items.filter(i => i.itemId !== itemId);
-                updateData('rooms', updatedRooms);
-                syncData('SYNC_ALL', { ...data, rooms: updatedRooms });
-                setRoomView(updatedRooms[roomIdx]);
-            }
-
-            // --- Sub-View: Label Printing ---
-            const LabelView = () => {
-                useEffect(() => {
-                    setTimeout(() => {
-                        let idx = 0;
-                        roomView.items.forEach(ri => {
-                            const item = data.items.find(i => i.id === ri.itemId);
-                            if(item) {
-                                for(let i=0; i<ri.qty; i++) {
-                                    new QRious({ element: document.getElementById(`lbl-qr-${idx}`), value: `${window.location.origin}${window.location.pathname}#item-${item.id}`, size: 80 });
-                                    idx++;
-                                }
-                            }
-                        });
-                    }, 500);
-                }, []);
-
-                let allLabels = [];
-                roomView.items.forEach(ri => {
-                    const item = data.items.find(i => i.id === ri.itemId);
-                    if(item) {
-                        for(let i=1; i<=ri.qty; i++) allLabels.push({ ...item, num: `${i}/${ri.qty}` });
-                    }
-                });
-
-                return (
-                    <div className="bg-white min-h-screen p-4 absolute inset-0 z-50 overflow-y-auto">
-                        <div className="flex justify-between mb-4 no-print sticky top-0 bg-white p-2 border-b">
-                            <h2 className="font-bold">Cetak Label ({allLabels.length})</h2>
-                            <div className="flex gap-2"><Button variant="outline" onClick={()=>setLabelView(false)}>Kembali</Button><Button onClick={()=>window.print()}>Print</Button></div>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 print:gap-1">
-                            {allLabels.map((l, i) => (
-                                <div key={i} className="border border-black p-2 h-28 flex gap-2 break-inside-avoid relative">
-                                    <canvas id={`lbl-qr-${i}`} className="w-20 h-20"></canvas>
-                                    <div className="flex-1 overflow-hidden">
-                                        <div className="bg-black text-white text-[8px] font-bold px-1 inline-block mb-1">SATPEL PVP JAMBI</div>
-                                        <p className="text-[10px] font-bold leading-tight uppercase truncate">{l.name}</p>
-                                        <p className="text-[8px] font-mono mt-1">{l.code}</p>
-                                        <div className="absolute bottom-1 right-1 text-[8px] font-bold bg-gray-200 px-1">{roomView.name} - {l.num}</div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                );
-            };
-
-            // --- Sub-View: Room QR ---
-            const QrRoomView = () => {
-                useEffect(() => {
-                    setTimeout(() => {
-                        const canvas = document.getElementById('room-qr-canvas');
-                        if (canvas) {
-                            new QRious({ element: canvas, value: `${window.location.origin}${window.location.pathname}#room-${roomView.id}`, size: 256 });
-                        }
-                    }, 300);
-                }, []);
-                
-                return (
-                    <div className="bg-white min-h-screen p-8 absolute inset-0 z-50 flex flex-col items-center justify-center">
-                        <div className="no-print absolute top-4 right-4 flex gap-2">
-                            <Button variant="outline" onClick={()=>setQrView(false)}>Kembali</Button>
-                            <Button onClick={()=>window.print()}>Print</Button>
-                        </div>
-                        <div className="border-4 border-black p-8 text-center max-w-md w-full">
-                            <h2 className="text-2xl font-black mb-4 uppercase">KARTU INVENTARIS RUANGAN</h2>
-                            <h3 className="text-xl font-bold mb-8">{roomView.name}</h3>
-                            <div className="flex justify-center mb-8"><canvas id="room-qr-canvas" className="w-64 h-64"></canvas></div>
-                            <p className="font-mono text-sm">Scan untuk melihat daftar inventaris</p>
-                            <div className="mt-8 text-left text-sm border-t pt-4">
-                                <p><b>Kode Ruangan:</b> {roomView.code}</p>
-                                <p><b>PIC:</b> {roomView.pic}</p>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-            if (labelView) return <LabelView />;
-            if (qrView) return <QrRoomView />;
-
-            if (roomView) {
-                return (
-                    <div className="space-y-6 animate-enter">
-                        <div className="flex items-center gap-4"><Button variant="outline" className="px-3" onClick={()=>setRoomView(null)}><Icon name="ArrowLeft"/></Button><h2 className="text-xl sm:text-2xl font-bold truncate">{roomView.name}</h2></div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <Card className="p-6 space-y-4">
-                                <h3 className="font-bold border-b pb-2">Info Ruangan</h3>
-                                <p className="text-sm"><b>Kode:</b> {roomView.code || "-"}</p>
-                                <p className="text-sm"><b>PIC:</b> {roomView.pic}</p>
-                                <div className="flex flex-col gap-2 mt-4">
-                                    <Button variant="outline" size="sm" onClick={()=>setQrView(true)}>Cetak QR Ruangan</Button>
-                                    <Button variant="outline" size="sm" onClick={()=>setLabelView(true)}>Cetak Label Barang</Button>
-                                </div>
-                            </Card>
-                            <Card className="md:col-span-2 p-6">
-                                <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-                                    <h3 className="font-bold">Daftar Barang</h3>
-                                    <Button size="sm" onClick={()=>setAddItemModal(true)}>+ Tambah</Button>
-                                </div>
-                                <div className="space-y-2">
-                                    {roomView.items.map((ri, i) => { 
-                                        const item = data.items.find(it => it.id === ri.itemId); 
-                                        return (
-                                            <div key={i} className="flex justify-between p-3 border rounded-lg hover:bg-slate-50 items-center">
-                                                <div className="overflow-hidden">
-                                                    <span className="font-bold block truncate">{item?.name || "Unknown"}</span>
-                                                    <span className="text-xs text-slate-500">{item?.code}</span>
-                                                </div>
-                                                <div className="flex items-center gap-3 shrink-0">
-                                                    <Badge color="blue">{ri.qty}</Badge>
-                                                    <button className="text-red-400 hover:text-red-600 p-1" onClick={()=>removeRoomItem(ri.itemId)}><Icon name="Trash" size={16}/></button>
-                                                </div>
-                                            </div>
-                                        ) 
-                                    })}
-                                    {roomView.items.length === 0 && <p className="text-slate-400 italic text-sm text-center py-4">Ruangan kosong.</p>}
-                                </div>
-                            </Card>
-                        </div>
-                        <Modal isOpen={addItemModal} onClose={()=>setAddItemModal(false)} title="Tambah ke Ruangan">
-                            <div className="space-y-4">
-                                <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Pilih Barang</label><select className="w-full h-10 border rounded-lg px-2 text-sm bg-white" onChange={e=>setSelectedItem(e.target.value)}><option value="">-- Pilih --</option>{data.items.map(i => <option key={i.id} value={i.id}>{i.name} (Sisa: {i.stock})</option>)}</select></div>
-                                <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Jumlah</label><Input type="number" value={qtyToAdd} onChange={e=>setQtyToAdd(e.target.value)} placeholder="Jumlah"/></div>
-                                <Button className="w-full mt-4" onClick={addItemToRoom}>Tambahkan</Button>
-                            </div>
-                        </Modal>
-                    </div>
-                )
-            }
-            return (
-                <div className="space-y-6 animate-enter">
-                    <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-slate-800">KIR & Ruangan</h2><Button onClick={()=>setShowAddRoom(true)} className="px-3"><Icon name="Plus"/><span className="hidden sm:inline"> Ruangan Baru</span></Button></div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                        {data.rooms.map(r => (
-                            <Card key={r.id} className="p-6 hover:shadow-lg transition-all cursor-pointer group active:scale-[0.98]" onClick={()=>{setRoomView(r)}}>
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-primary shrink-0"><Icon name="Building" size={24}/></div>
-                                    <div className="overflow-hidden">
-                                        <h3 className="font-bold text-lg truncate">{r.name}</h3>
-                                        <p className="text-xs text-slate-500 truncate">{r.pic}</p>
-                                    </div>
-                                </div>
-                                <div className="text-center p-2 bg-slate-50 rounded font-bold text-sm text-slate-600">{r.items.length} Jenis Barang</div>
-                            </Card>
-                        ))}
-                    </div>
-                    <Modal isOpen={showAddRoom} onClose={()=>setShowAddRoom(false)} title="Buat Ruangan">
-                        <div className="space-y-4">
-                            <Input placeholder="Nama Ruangan" onChange={e=>setFormRoom({...formRoom, name:e.target.value})}/>
-                            <Input placeholder="Kode Ruangan" onChange={e=>setFormRoom({...formRoom, code:e.target.value})}/>
-                            <Input placeholder="Penanggung Jawab" onChange={e=>setFormRoom({...formRoom, pic:e.target.value})}/>
-                            <Button className="w-full mt-2" onClick={handleAddRoom}>Simpan</Button>
                         </div>
                     </Modal>
                 </div>
