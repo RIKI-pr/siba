@@ -1,0 +1,1884 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIBA Enterprise - Satpel PVP Jambi</title>
+    
+    <!-- Fonts & Tailwind -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                        serif: ['"Lora"', 'serif'],
+                    },
+                    colors: {
+                        primary: { DEFAULT: '#4f46e5', 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 900: '#312e81' },
+                        slate: { 850: '#1e293b', 900: '#0f172a' },
+                        success: '#10b981', warning: '#f59e0b', danger: '#ef4444', info: '#3b82f6'
+                    },
+                    borderRadius: { DEFAULT: '0.5rem', xl: '0.75rem', '2xl': '1rem' },
+                    boxShadow: { 'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)' }
+                }
+            }
+        }
+    </script>
+    <!-- React -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- SheetJS for Excel parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- QR Code library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+
+    <style>
+        body { background-color: #f8fafc; color: #0f172a; -webkit-font-smoothing: antialiased; }
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        @media print { 
+            .no-print { display: none !important; } 
+            .print-only { display: block !important; } 
+            body { background: white; }
+            @page { margin: 0.5cm; }
+        }
+        .print-only { display: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, createContext, useContext, useRef } = React;
+
+        // --- UTILS ---
+        const cn = (...classes) => classes.filter(Boolean).join(" ");
+        const formatCurrency = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
+        const formatDate = (dateString) => new Date(dateString).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+        const generateQRUrl = (data) => `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(data)}`;
+
+        // --- ICONS (SVG Internal Fixed) ---
+        const Icon = ({ name, size = 18, className = "" }) => {
+            const icons = {
+                Dashboard: <g><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></g>,
+                Package: <g><path d="m16.5 9.4-9-5.19"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" x2="12" y1="22.08" y2="12"/></g>,
+                Building: <g><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></g>,
+                ArrowLeftRight: <g><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></g>,
+                Wrench: <g><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></g>,
+                FileText: <g><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></g>,
+                Settings: <g><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></g>,
+                Search: <g><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></g>,
+                Plus: <g><path d="M5 12h14"/><path d="M12 5v14"/></g>,
+                Filter: <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>,
+                Download: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></g>,
+                Trash: <g><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></g>,
+                Edit: <g><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></g>,
+                Eye: <g><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></g>,
+                X: <g><path d="M18 6 6 18"/><path d="m6 6 12 12"/></g>,
+                ChevronLeft: <path d="m15 18-6-6 6-6"/>,
+                ChevronRight: <path d="m9 18 6-6-6-6"/>,
+                Menu: <g><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></g>,
+                PanelLeft: <g><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></g>,
+                MapPin: <g><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></g>,
+                CheckCircle: <g><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></g>,
+                AlertCircle: <g><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></g>,
+                Clock: <g><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></g>,
+                Printer: <g><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></g>,
+                User: <g><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g>,
+                Upload: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></g>,
+                ArrowLeft: <g><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></g>,
+                Save: <g><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></g>,
+                Briefcase: <g><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></g>,
+                Shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />,
+                CheckSquare: <g><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></g>,
+                Share2: <g><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></g>,
+                Minus: <path d="M5 12h14"/>,
+                ShoppingCart: <g><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></g>,
+                AlertTriangle: <g><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></g>,
+                ChevronDown: <path d="m6 9 6 6 6-6"/>,
+                Bell: <g><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></g>,
+                Camera: <g><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></g>,
+                Image: <g><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></g>,
+                History: <g><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 12"/><path d="M3 3v9h9"/><path d="M12 7v5l3 3"/></g>,
+                FileBadge: <g><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M12 13v6"/><path d="M12 13h-3"/><path d="M12 13h3"/></g>,
+                ShieldCheck: <g><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" /><path d="m9 12 2 2 4-4" /></g>,
+                ArrowUpRight: <g><path d="M7 7h10v10" /><path d="M7 17 17 7" /></g>,
+                Database: <g><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></g>,
+                Link: <g><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></g>,
+                Loader: <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            };
+
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {icons[name] || <circle cx="12" cy="12" r="10"/>}
+                </svg>
+            );
+        };
+
+        // --- CONSTANTS ---
+        const INITIAL_DATA = { items: [], rooms: [], loans: [], maintenance: [], logs: [] };
+
+        // --- CONTEXT ---
+        const AppContext = createContext();
+        const AppProvider = ({ children }) => {
+            const [data, setData] = useState(INITIAL_DATA);
+            const [scriptUrl, setScriptUrl] = useState(localStorage.getItem('gas_url') || '');
+            const [loading, setLoading] = useState(false);
+            const [isConnected, setIsConnected] = useState(false);
+            const [isSyncing, setIsSyncing] = useState(false); // New state for sync indicator
+
+            const updateData = (key, newData) => setData(prev => ({ ...prev, [key]: newData }));
+
+            // Helper: Stok Global - Dipinjam
+            const getAvailableStock = (itemId) => {
+                const item = data.items.find(i => i.id === itemId);
+                if (!item) return 0;
+                const onLoan = data.loans
+                    .filter(l => l.status === 'Active')
+                    .reduce((total, l) => {
+                        const loanItem = l.items.find(li => li.id === itemId);
+                        return total + (loanItem ? loanItem.qty : 0);
+                    }, 0);
+                return item.stock - onLoan;
+            };
+
+            const addLog = (action, desc) => {
+                const newLog = {id: Date.now(), action, desc, time: new Date().toLocaleString()};
+                // Auto sync when log added (optional, but good for keeping history)
+                setData(prev => ({...prev, logs: [newLog, ...prev.logs]}));
+            };
+
+            const getItemLocations = (itemId) => {
+                const locs = [];
+                data.rooms.forEach(r => {
+                    const found = r.items.find(ri => ri.itemId === itemId);
+                    if(found) locs.push({ name: r.name, qty: found.qty });
+                });
+                return locs;
+            }
+            
+            const returnLoan = (loanId, returnedItems) => {
+                const updatedLoans = data.loans.map(l => l.id === loanId ? { ...l, status: 'Returned', dateReturn: new Date().toISOString().split('T')[0] } : l);
+                // Note: Logic to update item condition based on return checklist could be added here
+                updateData('loans', updatedLoans);
+                addLog("Return Loan", `Pengembalian pinjaman ID: ${loanId}`);
+                syncData('SYNC_ALL', { ...data, loans: updatedLoans });
+            };
+
+            const fetchData = async () => {
+                if (!scriptUrl) return;
+                setLoading(true);
+                try {
+                    const separator = scriptUrl.includes('?') ? '&' : '?';
+                    const res = await fetch(scriptUrl + separator + 'action=read');
+                    const cloudData = await res.json();
+                    if (cloudData) {
+                        setData(prev => ({
+                            ...prev,
+                            items: cloudData.items || [],
+                            rooms: cloudData.rooms || [],
+                            loans: cloudData.loans || [],
+                            logs: cloudData.logs || [],
+                            maintenance: cloudData.maintenance || []
+                        }));
+                        setIsConnected(true);
+                    }
+                } catch (e) {
+                    console.error("Fetch Error:", e);
+                    setIsConnected(false);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const syncData = async (type = "SYNC_ALL", overrideData = null) => {
+                if (!scriptUrl) return alert("URL Script belum disetting!");
+                setIsSyncing(true);
+                const payload = overrideData || data;
+                try {
+                    await fetch(scriptUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: type, payload: payload })
+                    });
+                    // Because no-cors, we assume success if no error thrown
+                } catch (e) {
+                    console.error("Sync Error:", e);
+                    alert("Gagal sinkronisasi data.");
+                } finally {
+                    setIsSyncing(false);
+                }
+            };
+
+            useEffect(() => { fetchData(); }, [scriptUrl]);
+
+            return (
+                <AppContext.Provider value={{ 
+                    data, updateData, getAvailableStock, addLog, getItemLocations, returnLoan, 
+                    scriptUrl, setScriptUrl, loading, syncData, fetchData, isConnected, isSyncing 
+                }}>
+                    {children}
+                </AppContext.Provider>
+            );
+        };
+
+        // --- UI KIT ---
+        const Button = ({ children, variant="primary", className, ...props }) => {
+            const variants = {
+                primary: "bg-primary text-white hover:bg-indigo-700 shadow-sm shadow-indigo-200",
+                secondary: "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50",
+                danger: "bg-red-500 text-white hover:bg-red-600 shadow-sm shadow-red-200",
+                ghost: "text-slate-500 hover:bg-slate-100",
+                outline: "border-2 border-slate-200 text-slate-600 hover:border-primary hover:text-primary"
+            };
+            return <button className={cn("px-4 py-2 rounded-lg text-sm font-semibold transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed", variants[variant], className)} {...props}>{children}</button>;
+        };
+
+        const Card = ({ children, className, ...props }) => (
+            <div className={cn("bg-white border border-slate-200 rounded-xl shadow-card", className)} {...props}>{children}</div>
+        );
+        
+        const Badge = ({ children, color="slate" }) => {
+            const colors = {
+                slate: "bg-slate-100 text-slate-600 border-slate-200",
+                green: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                yellow: "bg-amber-50 text-amber-700 border-amber-200",
+                red: "bg-red-50 text-red-700 border-red-200",
+                blue: "bg-blue-50 text-blue-700 border-blue-200",
+            };
+            return <span className={cn("px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border", colors[color])}>{children}</span>;
+        };
+
+        const Input = (props) => <input {...props} className={cn("w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400", props.className)} />;
+        
+        const Modal = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg" }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 animate-enter no-print">
+                    <div className={cn("bg-white rounded-3xl shadow-2xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]", maxWidth)}>
+                        <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-white sticky top-0 z-10">
+                            <h3 className="text-xl font-bold font-sans text-slate-900">{title}</h3>
+                            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors"><Icon name="X" size={20}/></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto custom-scrollbar">{children}</div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- SMART TABLE ---
+        const SmartTable = ({ data, columns, onRowClick, actions, filterKey }) => {
+            const [search, setSearch] = useState("");
+            const [filter, setFilter] = useState("All");
+            const [page, setPage] = useState(1);
+            const itemsPerPage = 7;
+
+            // Enhanced filter function to handle dynamic status calculation
+            const filteredData = data.filter(item => {
+                const matchesSearch = Object.values(item).some(val =>
+                    String(val).toLowerCase().includes(search.toLowerCase())
+                );
+
+                let matchesFilter = true;
+                if (filterKey && filter !== "All") {
+                    if (filterKey === 'status') {
+                        // For status, calculate based on stock
+                        const itemStatus = (item.stock || 0) > 0 ? "Tersedia" : "Habis";
+                        matchesFilter = itemStatus === filter;
+                    } else {
+                        matchesFilter = item[filterKey] === filter;
+                    }
+                }
+
+                return matchesSearch && matchesFilter;
+            });
+
+            const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+            const paginatedData = filteredData.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+
+            // Generate unique filters based on the filter key, with special handling for status
+            let uniqueFilters = [];
+            if (filterKey) {
+                if (filterKey === 'status') {
+                    // For status, use our calculated values
+                    uniqueFilters = ["All", ...new Set(data.map(i => (i.stock || 0) > 0 ? "Tersedia" : "Habis"))];
+                } else {
+                    uniqueFilters = ["All", ...new Set(data.map(i => i[filterKey]).filter(Boolean))];
+                }
+            }
+
+            return (
+                <Card className="flex flex-col overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row gap-4 justify-between bg-slate-50/50">
+                        <div className="relative flex-1 max-w-md">
+                            <Icon name="Search" className="absolute left-3 top-2.5 text-slate-400" size={18}/>
+                            <Input placeholder="Cari data..." className="pl-10 h-10 bg-white" value={search} onChange={e => setSearch(e.target.value)} />
+                        </div>
+                        <div className="flex gap-2">
+                            {filterKey && (
+                                <select className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none" value={filter} onChange={e => setFilter(e.target.value)}>
+                                    {uniqueFilters.map(f => <option key={f} value={f}>{f}</option>)}
+                                </select>
+                            )}
+                            {actions}
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 text-slate-500 border-b border-slate-100 font-bold uppercase text-[10px] tracking-wider">
+                                <tr>{columns.map((col, idx) => <th key={idx} className={cn("px-6 py-4", col.className)}>{col.header}</th>)}</tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedData.map((row, idx) => (
+                                    <tr key={idx} onClick={() => onRowClick && onRowClick(row)} className={cn("hover:bg-slate-50/80 transition-colors group", onRowClick && "cursor-pointer")}>
+                                        {columns.map((col, cIdx) => (
+                                            <td key={cIdx} className={cn("px-6 py-4", col.className)}>
+                                                {col.render ? col.render(row) : (typeof col.accessor === 'function' ? col.accessor(row) : row[col.accessor])}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                                {paginatedData.length === 0 && <tr><td colSpan={columns.length} className="p-8 text-center text-slate-400 italic">Tidak ada data ditemukan.</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                    {totalPages > 1 && (
+                        <div className="p-4 border-t border-slate-100 flex justify-between items-center bg-slate-50/30">
+                            <span className="text-xs font-medium text-slate-500">Hal {page} dari {totalPages}</span>
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}><Icon name="ChevronLeft" size={16}/></Button>
+                                <Button variant="outline" size="sm" onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages}><Icon name="ChevronRight" size={16}/></Button>
+                            </div>
+                        </div>
+                    )}
+                </Card>
+            );
+        };
+
+        const SimpleBarChart = ({ data }) => {
+            const max = Math.max(...data.map(d => d.value)) || 1;
+            return (
+                <div className="flex items-end justify-between gap-2 h-40 w-full pt-4">
+                    {data.map((d, i) => (
+                        <div key={i} className="flex flex-col items-center gap-2 flex-1 group">
+                            <div className="w-full bg-slate-100 rounded-t-lg relative overflow-hidden h-full flex items-end">
+                                <div className="w-full bg-primary opacity-80 group-hover:opacity-100 transition-all duration-500 rounded-t-lg" style={{ height: `${(d.value / max) * 100}%` }}></div>
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">{d.label}</span>
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        // --- PAGE MODULES ---
+
+        const Dashboard = () => {
+            const { data } = useContext(AppContext);
+            // Calculate total assets based on price and stock
+            const totalAssets = data.items.reduce((a,b) => a + ((b.price || 0) * (b.stock || 0)), 0);
+            const activeLoans = data.loans.filter(l => l.status === 'Active').length;
+            const maintenanceCount = data.maintenance.filter(m => m.status !== 'Done').length;
+            const totalRooms = data.rooms.length;
+            const totalItems = data.items.length;
+
+            const stats = [
+                { label: "Total Aset", val: formatCurrency(totalAssets), icon: "Package", bg: "bg-indigo-600", text: "text-white" },
+                { label: "Jenis Barang", val: totalItems, icon: "Package", bg: "bg-white", text: "text-slate-800" },
+                { label: "Sedang Dipinjam", val: activeLoans, icon: "ArrowLeftRight", bg: "bg-white", text: "text-slate-800" },
+                { label: "Perlu Perbaikan", val: maintenanceCount, icon: "Wrench", bg: "bg-white", text: "text-slate-800" }
+            ];
+
+            return (
+                <div className="space-y-8 animate-enter">
+                    <h2 className="text-2xl font-bold">Dashboard Overview</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        {stats.map((s, i) => (
+                            <Card key={i} className={cn("p-6 shadow-lg border-none", s.bg)}>
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className={cn("p-3 rounded-xl backdrop-blur-sm", i===0 ? "bg-white/20 text-white" : "bg-slate-100 text-primary")}><Icon name={s.icon} size={20}/></div>
+                                </div>
+                                <h3 className={cn("text-3xl font-black", s.text)}>{s.val}</h3>
+                                <p className={cn("text-sm opacity-80 font-medium", s.text)}>{s.label}</p>
+                            </Card>
+                        ))}
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <Card className="lg:col-span-2 p-6"><h3 className="font-bold text-lg mb-4">Statistik Peminjaman</h3><SimpleBarChart data={[{label:'Jan',value:40},{label:'Feb',value:65},{label:'Mar',value:80},{label:'Apr',value:50},{label:'Mei',value:90},{label:'Jun',value:30}]}/></Card>
+                        <Card className="p-6"><h3 className="font-bold text-lg mb-4">Aktivitas Terbaru</h3><div className="space-y-4">{data.logs.slice(0,5).map((l,i)=>(<div key={i}><p className="text-sm font-bold text-slate-800">{l.action}</p><p className="text-xs text-slate-500">{l.desc}</p><span className="text-[10px] text-slate-400">{l.time}</span></div>))}</div></Card>
+                    </div>
+                </div>
+            );
+        };
+
+        const Inventory = ({ setView, setDetailItem }) => {
+            const { data, updateData, addLog, getItemLocations, syncData } = useContext(AppContext);
+            const [showAddModal, setShowAddModal] = useState(false);
+            const [showImportModal, setShowImportModal] = useState(false);
+            const [form, setForm] = useState({});
+            const [importData, setImportData] = useState([]);
+            const [importError, setImportError] = useState('');
+            const fileInputRef = useRef(null);
+
+            const handleSave = () => {
+                if (!form.name || !form.code || !form.qty) {
+                    alert("Harap lengkapi nama barang, kode barang, dan jumlah!");
+                    return;
+                }
+
+                const newItem = {
+                    ...form,
+                    id: Date.now(),
+                    stock: parseInt(form.qty || 0),
+                    condGood: parseInt(form.qty || 0), // Initially all items are in good condition
+                    condBad: 0,
+                    status: "Tersedia",
+                    locs: [],
+                    price: parseInt(form.price || 0) // Add price field for budget calculation
+                };
+
+                const updatedItems = [newItem, ...data.items];
+                updateData('items', updatedItems);
+                addLog("Create Item", `Menambahkan ${newItem.name}`);
+                syncData('SYNC_ALL', { ...data, items: updatedItems });
+                setShowAddModal(false);
+                setForm({});
+            };
+
+            const handleImportSave = () => {
+                if (importData.length === 0) {
+                    alert("Tidak ada data untuk diimpor!");
+                    return;
+                }
+
+                const newItems = importData.map(item => ({
+                    ...item,
+                    id: Date.now() + Math.floor(Math.random() * 10000), // Ensure unique IDs
+                    stock: parseInt(item.qty || 0),
+                    condGood: parseInt(item.qty || 0),
+                    condBad: 0,
+                    status: "Tersedia",
+                    locs: [],
+                    price: parseInt(item.price || 0)
+                }));
+
+                const updatedItems = [...newItems, ...data.items];
+                updateData('items', updatedItems);
+                addLog("Import Items", `Mengimpor ${newItems.length} item baru`);
+                syncData('SYNC_ALL', { ...data, items: updatedItems });
+                setShowImportModal(false);
+                setImportData([]);
+            };
+
+            const handleDelete = (id, e) => {
+                e.stopPropagation();
+                if(confirm("Hapus barang ini?")) {
+                    const updatedItems = data.items.filter(i => i.id !== id);
+                    updateData('items', updatedItems);
+                    addLog("Delete Item", `Menghapus item ID: ${id}`);
+                    syncData('SYNC_ALL', { ...data, items: updatedItems });
+                }
+            };
+
+            // Handle file upload for Excel/CSV import
+            const handleFileUpload = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                // Check if it's an Excel file
+                const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+
+                if (isExcel) {
+                    // Use SheetJS to parse Excel file
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, {type: 'array'});
+                            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                            // Map the Excel data to our item format
+                            // Expecting columns: Nama Barang, Kode Barang, Model/Spesifikasi, Tahun, Anggaran Per Unit, Jumlah
+                            const importedData = jsonData.map(row => {
+                                // Handle different possible column names in Excel
+                                return {
+                                    name: row['Nama Barang'] || row['nama'] || row['name'] || '',
+                                    code: row['Kode Barang'] || row['kode'] || row['code'] || '',
+                                    model: row['Model/Spesifikasi'] || row['model'] || row['Model'] || row['Spesifikasi'] || '',
+                                    year: row['Tahun'] || row['year'] || row['Tahun Pembuatan'] || '',
+                                    price: row['Anggaran Per Unit'] || row['Harga'] || row['Price'] || row['anggaran'] || row['budget'] || '0',
+                                    qty: row['Jumlah'] || row['qty'] || row['quantity'] || row['Jml'] || '1'
+                                };
+                            });
+
+                            setImportData(importedData);
+                            setImportError(importedData.length === 0 ? 'Tidak ditemukan data yang valid dalam file.' : '');
+                        } catch (error) {
+                            setImportError('Gagal membaca file Excel. Harap pastikan format file benar.');
+                            console.error('Excel read error:', error);
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                } else {
+                    // Handle CSV file
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const content = e.target.result;
+                            const rows = content.split('\n');
+
+                            // Skip empty rows at the beginning
+                            const validRows = rows.filter(row => row.trim() !== '');
+                            if (validRows.length < 1) {
+                                setImportError('File tidak berisi data yang valid.');
+                                return;
+                            }
+
+                            const importedData = [];
+                            for (let i = 1; i < validRows.length; i++) { // Start from 1 to skip headers
+                                const values = validRows[i].split(',').map(v => v.trim().replace(/"/g, '').replace(/'/g, ''));
+
+                                // Only process rows that have at least 4 fields (name, code, model, year)
+                                if (values.length >= 4) {
+                                    const item = {
+                                        name: values[0] || '',
+                                        code: values[1] || '',
+                                        model: values[2] || '',
+                                        year: values[3] || '',
+                                        price: values[4] || '0', // Optional field
+                                        qty: values[5] || '1'    // At least qty is needed
+                                    };
+                                    importedData.push(item);
+                                }
+                            }
+
+                            setImportData(importedData);
+                            setImportError(importedData.length === 0 ? 'Tidak ditemukan data yang valid dalam file.' : '');
+                        } catch (error) {
+                            setImportError('Gagal membaca file. Harap pastikan format file benar (CSV dengan format: Nama,Kode,Model,Tahun,Anggaran,Jumlah).');
+                            console.error('File read error:', error);
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+
+            const columns = [
+                {
+                    header: "No",
+                    render: (r) => data.items.indexOf(r) + 1,
+                    className: "w-12 text-center"
+                },
+                {
+                    header: "Informasi Barang",
+                    render: r => (
+                        <div>
+                            <p className="font-bold text-slate-900">{r.name}</p>
+                            <p className="text-sm text-slate-600">{r.code}</p>
+                            {r.model && <p className="text-xs text-slate-500 mt-1">{r.model}</p>}
+                        </div>
+                    ),
+                    className: "min-w-[200px]"
+                },
+                {
+                    header: "Merk / Model",
+                    render: r => (
+                        <div>
+                            <p>{r.brand || '-'}</p>
+                            <p className="text-xs text-slate-500">{r.model || '-'}</p>
+                        </div>
+                    )
+                },
+                {
+                    header: "Total Stok",
+                    render: r => (
+                        <div className="text-center">
+                            <div className="font-bold text-lg">{r.stock}</div>
+                            <div className="text-xs text-slate-500">Unit</div>
+                        </div>
+                    ),
+                    className: "w-24 text-center"
+                },
+                {
+                    header: "Lokasi",
+                    render: r => {
+                        const locs = getItemLocations(r.id);
+                        return locs.length > 0 ? (
+                            <div className="space-y-1">
+                                {locs.map((l, i) => (
+                                    <div key={i} className="text-sm">
+                                        <span className="font-medium">{l.name}:</span> <span className="font-bold">{l.qty}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <span className="text-sm text-slate-400">-</span>
+                        );
+                    }
+                },
+                {
+                    header: "Kondisi",
+                    render: r => (
+                        <div className="space-y-1">
+                            <div className="text-sm">
+                                <span className="font-bold text-emerald-600">Baik:</span> <span className="font-medium">{r.condGood || 0}</span>
+                            </div>
+                            <div className="text-sm">
+                                <span className="font-bold text-amber-600">R. Ringan:</span> <span className="font-medium">{Math.max(0, (r.stock || 0) - (r.condGood || 0) - (r.condBad || 0))}</span>
+                            </div>
+                            <div className="text-sm">
+                                <span className="font-bold text-red-600">Rusak:</span> <span className="font-medium">{r.condBad || 0}</span>
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    header: "Status",
+                    render: r => (
+                        <div className="space-y-1">
+                            <div className="text-sm">
+                                <span className="font-bold text-emerald-600">Tersedia:</span> <span className="font-medium">{r.condGood || 0}</span>
+                            </div>
+                            <div className="text-sm">
+                                <span className="font-bold text-amber-600">Dipinjam:</span> <span className="font-medium">{Math.max(0, (r.stock || 0) - (r.condGood || 0) - (r.condBad || 0))}</span>
+                            </div>
+                            <div className="text-sm">
+                                <span className="font-bold text-red-600">Perbaikan:</span> <span className="font-medium">{r.condBad || 0}</span>
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    header: "Aksi",
+                    render: r => (
+                        <div className="flex gap-2 justify-center">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                    setDetailItem(r);
+                                    setView('inventory-detail');
+                                }}
+                                title="Lihat Detail"
+                            >
+                                <Icon name="Eye" size={14}/>
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="danger"
+                                onClick={(e) => handleDelete(r.id, e)}
+                                title="Hapus"
+                            >
+                                <Icon name="Trash" size={14}/>
+                            </Button>
+                        </div>
+                    ),
+                    className: "w-24"
+                }
+            ];
+
+            // State for search and pagination for SmartTable
+            const [search, setSearch] = useState("");
+            const [filter, setFilter] = useState("All");
+            const [page, setPage] = useState(1);
+            const itemsPerPage = 7; // Standard for table view
+
+            // Filter the data based on search and filter
+            const filteredData = data.items.filter(item => {
+                const matchesSearch = Object.values(item).some(val =>
+                    String(val).toLowerCase().includes(search.toLowerCase())
+                );
+                return matchesSearch;
+            });
+
+            // Calculate pagination
+            const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+            const paginatedData = filteredData.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+
+            return (
+                <div className="space-y-6 animate-enter">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-800">Data Barang</h2>
+                            <p className="text-slate-500 text-sm mt-1">{data.items.length} jenis barang dalam inventaris</p>
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                            <Button variant="outline" onClick={() => {
+                                // Export functionality would go here
+                                alert("Fungsi export akan segera tersedia");
+                            }}>
+                                <Icon name="Download" size={16} /> Export
+                            </Button>
+                            <Button variant="outline" onClick={() => setShowImportModal(true)}>
+                                <Icon name="Upload" size={16} /> Import Excel
+                            </Button>
+                            <Button onClick={() => setShowAddModal(true)}>
+                                <Icon name="Plus" size={16} /> Tambah Barang
+                            </Button>
+                        </div>
+                    </div>
+
+                    <Card className="flex flex-col overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row gap-4 justify-between bg-slate-50/50">
+                            <div className="relative flex-1 max-w-md">
+                                <Icon name="Search" className="absolute left-3 top-2.5 text-slate-400" size={18}/>
+                                <Input
+                                    placeholder="Cari data..."
+                                    className="pl-10 h-10 bg-white"
+                                    value={search}
+                                    onChange={e => {
+                                        setSearch(e.target.value);
+                                        setPage(1); // Reset to first page when searching
+                                    }}
+                                />
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        // Reset filters
+                                        setSearch("");
+                                        setFilter("All");
+                                        setPage(1);
+                                    }}
+                                >
+                                    Reset
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-50 text-slate-500 border-b border-slate-100 font-bold uppercase text-[10px] tracking-wider">
+                                    <tr>
+                                        {columns.map((col, idx) => (
+                                            <th key={idx} className={cn("px-6 py-4", col.className)}>
+                                                {col.header}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {paginatedData.map((row, idx) => (
+                                        <tr
+                                            key={idx}
+                                            onClick={() => {
+                                                setDetailItem(row);
+                                                setView('inventory-detail');
+                                            }}
+                                            className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
+                                        >
+                                            {columns.map((col, cIdx) => (
+                                                <td key={cIdx} className={cn("px-6 py-4 align-top", col.className)}>
+                                                    {col.render ? col.render(row) : row[col.accessor]}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    ))}
+                                    {paginatedData.length === 0 && (
+                                        <tr>
+                                            <td colSpan={columns.length} className="p-8 text-center text-slate-400 italic">
+                                                Tidak ada data ditemukan.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {totalPages > 1 && (
+                            <div className="p-4 border-t border-slate-100 flex justify-between items-center bg-slate-50/30">
+                                <span className="text-xs font-medium text-slate-500">Hal {page} dari {totalPages}</span>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPage(Math.max(1, page - 1))}
+                                        disabled={page === 1}
+                                    >
+                                        <Icon name="ChevronLeft" size={16}/>
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPage(Math.min(totalPages, page + 1))}
+                                        disabled={page === totalPages}
+                                    >
+                                        <Icon name="ChevronRight" size={16}/>
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </Card>
+
+                    {/* Add Single Item Modal */}
+                    <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="Tambah Barang Baru">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase">Nama Barang *</label>
+                                <Input placeholder="Masukkan nama barang" value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Kode Barang *</label>
+                                    <Input placeholder="Masukkan kode barang" value={form.code || ''} onChange={e => setForm({...form, code: e.target.value})} />
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Model/Spesifikasi</label>
+                                    <Input placeholder="Masukkan model/spesifikasi" value={form.model || ''} onChange={e => setForm({...form, model: e.target.value})} />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Tahun</label>
+                                    <Input type="number" placeholder="Tahun" value={form.year || ''} onChange={e => setForm({...form, year: e.target.value})} />
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Anggaran Per Unit</label>
+                                    <Input type="number" placeholder="Rp" value={form.price || ''} onChange={e => setForm({...form, price: e.target.value})} />
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Jumlah *</label>
+                                    <Input type="number" placeholder="Jumlah" value={form.qty || ''} onChange={e => setForm({...form, qty: e.target.value})} />
+                                </div>
+                            </div>
+
+                            <Button className="w-full mt-6" onClick={handleSave}>
+                                Simpan Barang
+                            </Button>
+                        </div>
+                    </Modal>
+
+                    {/* Import Excel Modal */}
+                    <Modal isOpen={showImportModal} onClose={() => setShowImportModal(false)} title="Import Barang dari Excel">
+                        <div className="space-y-6">
+                            <div>
+                                <h3 className="font-bold mb-2">Format File</h3>
+                                <p className="text-sm text-slate-600 mb-4">Format kolom: Nama Barang, Kode Barang, Model/Spesifikasi, Tahun, Anggaran Per Unit, Jumlah</p>
+
+                                <div className="bg-slate-50 p-4 rounded-lg mb-4">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h4 className="font-bold text-sm">Contoh data:</h4>
+                                        <Button variant="outline" size="sm" onClick={downloadSampleTemplate}>
+                                            <Icon name="Download" size={14} /> Unduh Template
+                                        </Button>
+                                    </div>
+                                    <code className="text-xs bg-white p-2 rounded border block overflow-x-auto">
+                                        Komputer Lengkap, PC001, Intel i5/8GB RAM, 2023, 5000000, 10<br/>
+                                        Meja Kerja, MK001, Kayu Jati, 2022, 1500000, 5
+                                    </code>
+                                </div>
+
+                                <div className="mb-4">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Pilih File Excel/CSV</label>
+                                    <input
+                                        type="file"
+                                        accept=".csv,.xlsx,.xls"
+                                        onChange={handleFileUpload}
+                                        className="w-full p-2 border rounded-lg text-sm"
+                                        ref={fileInputRef}
+                                    />
+                                </div>
+
+                                {importError && (
+                                    <div className="text-red-500 text-sm mb-4 p-2 bg-red-50 rounded">{importError}</div>
+                                )}
+
+                                {importData.length > 0 && (
+                                    <div>
+                                        <h4 className="font-bold mb-2">Data yang akan diimpor:</h4>
+                                        <div className="max-h-60 overflow-y-auto border rounded-lg">
+                                            <table className="w-full text-xs">
+                                                <thead className="bg-slate-100 sticky top-0">
+                                                    <tr>
+                                                        <th className="p-2 text-left">Nama Barang</th>
+                                                        <th className="p-2 text-left">Kode Barang</th>
+                                                        <th className="p-2 text-left">Model</th>
+                                                        <th className="p-2 text-left">Tahun</th>
+                                                        <th className="p-2 text-left">Anggaran</th>
+                                                        <th className="p-2 text-left">Jumlah</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {importData.map((item, idx) => (
+                                                        <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                                                            <td className="p-2 border-t">{item.name}</td>
+                                                            <td className="p-2 border-t">{item.code}</td>
+                                                            <td className="p-2 border-t">{item.model}</td>
+                                                            <td className="p-2 border-t">{item.year}</td>
+                                                            <td className="p-2 border-t">{formatCurrency(item.price || 0)}</td>
+                                                            <td className="p-2 border-t">{item.qty}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex gap-2 pt-4">
+                                <Button
+                                    className="flex-1"
+                                    onClick={handleImportSave}
+                                    disabled={importData.length === 0}
+                                >
+                                    Import {importData.length} Barang
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setShowImportModal(false);
+                                        setImportData([]);
+                                        if (fileInputRef.current) fileInputRef.current.value = '';
+                                    }}
+                                >
+                                    Batal
+                                </Button>
+                            </div>
+                        </div>
+                    </Modal>
+                </div>
+            );
+        };
+
+        const InventoryDetail = ({ item, onBack }) => {
+            const { getItemLocations } = useContext(AppContext);
+            const [tab, setTab] = useState('info'); // info, history, docs
+            if(!item) return null;
+            const locs = getItemLocations(item.id);
+
+            return (
+                <div className="space-y-6 animate-enter">
+                    <div className="flex items-center gap-4"><Button variant="outline" size="icon" onClick={onBack}><Icon name="ArrowLeft" size={18}/></Button><div><h2 className="text-2xl font-bold text-slate-900">{item.name}</h2><p className="text-slate-500 font-mono text-sm">{item.code}</p></div></div>
+
+                    <div className="flex gap-4 border-b border-slate-200">
+                        {['info', 'history', 'docs'].map(t => (
+                            <button key={t} onClick={()=>setTab(t)} className={cn("pb-2 px-4 font-bold border-b-2 capitalize transition-all", tab===t ? "border-primary text-primary" : "border-transparent text-slate-500")}>{t === 'info' ? 'Ringkasan' : t === 'history' ? 'Riwayat' : 'Dokumentasi'}</button>
+                        ))}
+                    </div>
+
+                    {tab === 'info' && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <Card className="p-6 space-y-4">
+                                <h3 className="font-bold border-b pb-2">Spesifikasi</h3>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p className="text-xs text-slate-400 font-bold uppercase">Kode Barang</p>
+                                        <p>{item.code}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-slate-400 font-bold uppercase">Tahun</p>
+                                        <p>{item.year}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-slate-400 font-bold uppercase">Model/Spesifikasi</p>
+                                        <p>{item.model || "-"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-slate-400 font-bold uppercase">Anggaran Per Unit</p>
+                                        <p>{formatCurrency(item.price || 0)}</p>
+                                    </div>
+                                </div>
+                                <p className="text-sm text-slate-600 mt-2">{item.desc || "Tidak ada deskripsi."}</p>
+                            </Card>
+                            <Card className="lg:col-span-2 p-6">
+                                <h3 className="font-bold border-b pb-2 mb-4">Sebaran Stok & Lokasi</h3>
+                                <div className="space-y-2">
+                                    {locs.map((l, i) => (
+                                        <div key={i} className="flex justify-between p-3 border rounded-lg">
+                                            <span className="font-medium">{l.name}</span>
+                                            <Badge variant="primary">{l.qty} Unit</Badge>
+                                        </div>
+                                    ))}
+                                </div>
+                            </Card>
+                        </div>
+                    )}
+                    {tab === 'history' && (
+                         <Card className="p-6"><h3 className="font-bold mb-4">Riwayat Pergerakan</h3><div className="space-y-3">{item.logs && item.logs.map((l,i)=>(<div key={i} className="flex gap-4 border-b pb-2"><span className="text-xs font-mono">{l.date}</span><span>{l.action}</span></div>))}</div></Card>
+                    )}
+                    {tab === 'docs' && (
+                         <div className="grid grid-cols-2 gap-4"><Card className="p-8 flex flex-col items-center justify-center border-dashed"><Icon name="Image" size={32}/><p className="text-sm text-slate-500 mt-2">{item.doc}</p></Card></div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- UTILITY FUNCTIONS ---
+        // Function to generate and download a sample Excel template
+        const downloadSampleTemplate = () => {
+            // Create a sample template in CSV format that users can save as Excel
+            const csvContent = "Nama Barang,Kode Barang,Model/Spesifikasi,Tahun,Anggaran Per Unit,Jumlah\nKomputer Lengkap,PC001,Intel i5/8GB RAM,2023,5000000,10\nMeja Kerja,MK001,Kayu Jati,2022,1500000,5\nKursi Ergonomis,KR001,Beroda,2023,750000,8";
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "template_import_barang.csv");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        const KIRModule = () => {
+            const { data, updateData, syncData } = useContext(AppContext);
+            const [roomView, setRoomView] = useState(null);
+            const [showAddRoom, setShowAddRoom] = useState(false);
+            const [formRoom, setFormRoom] = useState({});
+            const [addItemModal, setAddItemModal] = useState(false);
+            const [selectedItem, setSelectedItem] = useState("");
+            const [qtyToAdd, setQtyToAdd] = useState(1);
+            const [labelView, setLabelView] = useState(false);
+            const [qrView, setQrView] = useState(false);
+
+            const handleAddRoom = () => { 
+                const newRooms = [...data.rooms, { ...formRoom, id: Date.now(), items: [] }];
+                updateData('rooms', newRooms); 
+                syncData('SYNC_ALL', { ...data, rooms: newRooms });
+                setShowAddRoom(false); 
+            };
+            
+            const addItemToRoom = () => {
+                if(!selectedItem) return;
+                const roomIdx = data.rooms.findIndex(r => r.id === roomView.id);
+                const updatedRooms = [...data.rooms];
+                updatedRooms[roomIdx].items.push({ itemId: parseInt(selectedItem), qty: parseInt(qtyToAdd) });
+                updateData('rooms', updatedRooms);
+                syncData('SYNC_ALL', { ...data, rooms: updatedRooms });
+                setRoomView(updatedRooms[roomIdx]); setAddItemModal(false);
+            };
+
+            const removeRoomItem = (itemId) => {
+                if(!confirm("Hapus barang dari ruangan?")) return;
+                const roomIdx = data.rooms.findIndex(r => r.id === roomView.id);
+                const updatedRooms = [...data.rooms];
+                updatedRooms[roomIdx].items = updatedRooms[roomIdx].items.filter(i => i.itemId !== itemId);
+                updateData('rooms', updatedRooms);
+                syncData('SYNC_ALL', { ...data, rooms: updatedRooms });
+                setRoomView(updatedRooms[roomIdx]);
+            }
+
+            // Label View - separate component to avoid useEffect in conditional rendering
+            const LabelView = () => {
+                const [labels, setLabels] = useState([]);
+
+                // Generate labels based on room items
+                useEffect(() => {
+                    if (roomView && data.items) {
+                        const newLabels = [];
+                        roomView.items.forEach(ri => {
+                            const item = data.items.find(i => i.id === ri.itemId);
+                            if(item) {
+                                for(let i=1; i<=ri.qty; i++) {
+                                    newLabels.push({
+                                        name: item.name,
+                                        code: item.code,
+                                        id: item.id,
+                                        num: `${i}/${ri.qty}`,
+                                        room: roomView.name,
+                                        brand: item.brand || '-',
+                                        model: item.model || '-'
+                                    });
+                                }
+                            }
+                        });
+                        setLabels(newLabels);
+
+                        // Generate QR codes after labels are set
+                        setTimeout(() => {
+                            newLabels.forEach((label, index) => {
+                                const canvasId = `label-qr-${label.id}-${index}`;
+                                const canvas = document.getElementById(canvasId);
+                                if (canvas) {
+                                    // Create a unique URL for this specific item
+                                    const itemUrl = `${window.location.origin}${window.location.pathname}#item-${label.id}`;
+                                    const qr = new QRious({
+                                        element: canvas,
+                                        value: itemUrl,
+                                        size: 80
+                                    });
+                                }
+                            });
+                        }, 100); // Small delay to ensure rendering
+                    }
+                }, [roomView, data.items, labelView]); // Added labelView to dependencies
+
+                return (
+                    <div className="bg-white min-h-screen p-4 print:p-2">
+                        <div className="flex justify-between mb-6 no-print">
+                            <h2 className="text-xl font-bold">Cetak Label Barang ({labels.length})</h2>
+                            <div className="flex gap-2">
+                                <Button variant="outline" onClick={()=>setLabelView(false)}>Kembali</Button>
+                                <Button onClick={()=>window.print()}>Cetak Label</Button>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3 print:gap-1">
+                            {labels.map((l, i) => (
+                                <div
+                                    key={i}
+                                    className="border border-black p-2 h-32 flex items-center gap-2 relative overflow-hidden break-inside-avoid print:border-black print:p-2 print:h-28"
+                                >
+                                    <div className="w-20 h-20 print:w-16 print:h-16 flex items-center justify-center">
+                                        <canvas
+                                            id={`label-qr-${l.id}-${i}`}
+                                            className="w-full h-full bg-white"
+                                        ></canvas>
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                        <div className="bg-black text-white text-[8px] font-bold px-1 w-fit mb-1 print:text-[6px]">
+                                            SATPEL PVP JAMBI
+                                        </div>
+
+                                        <p className="text-xs font-black leading-tight uppercase print:text-[9px]">
+                                            {l.name.length > 30 ? l.name.substring(0, 30) + '...' : l.name}
+                                        </p>
+
+                                        <p className="font-mono text-[10px] mt-1 print:text-[9px]">{l.code}</p>
+
+                                        <div className="absolute bottom-1 right-2 text-[10px] font-bold bg-slate-200 px-1 print:text-[8px]">
+                                            {l.room} - {l.num}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            };
+
+            if (labelView) {
+                return <LabelView />;
+            }
+
+            // QR View - separate component to avoid useEffect in conditional rendering
+            const QrRoomView = () => {
+                useEffect(() => {
+                    if (roomView) {
+                        const canvas = document.getElementById(`qr-canvas-${roomView.id}`);
+                        if (canvas) {
+                            const qr = new QRious({
+                                element: canvas,
+                                value: `${window.location.origin}${window.location.pathname}#room-${roomView.id}`,
+                                size: 256
+                            });
+                        }
+                    }
+                }, [roomView, qrView]); // Added qrView to dependency array to ensure QR gets generated when view opens
+
+                if (!roomView) return null;
+
+                return (
+                     <div className="bg-white min-h-screen p-8 flex flex-col items-center">
+                        <div className="no-print w-full flex justify-between mb-8">
+                            <Button variant="outline" onClick={()=>setQrView(false)}>Kembali</Button>
+                            <Button onClick={()=>window.print()}>Print QR Ruangan</Button>
+                        </div>
+                        <div className="border-4 border-black p-8 text-center max-w-md w-full break-inside-avoid">
+                            <h2 className="text-2xl font-black mb-4 uppercase">KARTU INVENTARIS RUANGAN</h2>
+                            <h3 className="text-xl font-bold mb-8">{roomView.name}</h3>
+                            <div className="flex justify-center">
+                                <canvas id={`qr-canvas-${roomView.id}`} className="w-64 h-64 bg-white p-2"></canvas>
+                            </div>
+                            <p className="font-mono text-sm mt-4">Scan untuk melihat daftar inventaris</p>
+                            <div className="mt-8 text-left text-sm">
+                                <p><b>Kode Ruangan:</b> {roomView.code || "-"}</p>
+                                <p><b>PIC:</b> {roomView.pic || "-"}</p>
+                                <p><b>Jumlah Barang:</b> {roomView.items.length} jenis</p>
+                            </div>
+                        </div>
+                     </div>
+                );
+            };
+
+            if (qrView) {
+                return <QrRoomView />;
+            }
+
+            if (roomView) {
+                return (
+                    <div className="space-y-6 animate-enter"><div className="flex items-center gap-4"><Button variant="outline" onClick={()=>setRoomView(null)}><Icon name="ArrowLeft"/></Button><h2 className="text-2xl font-bold">{roomView.name}</h2></div>
+                        <div className="grid grid-cols-3 gap-6"><Card className="p-6 space-y-4"><h3 className="font-bold border-b pb-2">Info Ruangan</h3><p className="text-sm"><b>Kode:</b> {roomView.code || "-"}</p><p className="text-sm"><b>PIC:</b> {roomView.pic}</p><div className="pt-4 flex gap-2 flex-col"><Button variant="outline" className="w-full" onClick={()=>setQrView(true)}>Cetak QR Ruangan</Button><Button variant="outline" className="w-full" onClick={()=>setLabelView(true)}>Cetak Label Barang</Button></div></Card>
+                        <Card className="col-span-2 p-6"><div className="flex justify-between items-center mb-4"><h3 className="font-bold">Daftar Barang</h3><Button size="sm" onClick={()=>setAddItemModal(true)}>+ Tambah Barang</Button></div><div className="space-y-2">{roomView.items.map((ri, i) => { const item = data.items.find(it => it.id === ri.itemId); return (<div key={i} className="flex justify-between p-3 border rounded-lg hover:bg-slate-50 items-center"><div><span className="font-bold block">{item?.name || "Unknown"}</span><span className="text-xs text-slate-500">{item?.code}</span></div><div className="flex items-center gap-3"><Badge color="blue">{ri.qty} Unit</Badge><button className="text-red-400 hover:text-red-600" onClick={()=>removeRoomItem(ri.itemId)}><Icon name="Trash" size={16}/></button></div></div>) })}</div></Card></div>
+                        <Modal isOpen={addItemModal} onClose={()=>setAddItemModal(false)} title="Tambah ke Ruangan"><div className="space-y-4"><label className="text-xs font-bold text-slate-500 uppercase">Pilih Barang Master</label><select className="w-full h-10 border rounded-lg px-2" onChange={e=>setSelectedItem(e.target.value)}><option value="">-- Pilih --</option>{data.items.map(i => <option key={i.id} value={i.id}>{i.name} (Sisa Stok Gudang: {i.stock})</option>)}</select><Input type="number" value={qtyToAdd} onChange={e=>setQtyToAdd(e.target.value)} placeholder="Jumlah"/><Button className="w-full" onClick={addItemToRoom}>Tambahkan</Button></div></Modal>
+                    </div>
+                )
+            }
+            return (
+                <div className="space-y-6 animate-enter"><div className="flex justify-between items-center"><h2 className="text-2xl font-bold">KIR & Ruangan</h2><Button onClick={()=>setShowAddRoom(true)}><Icon name="Plus"/> Ruangan Baru</Button></div><div className="grid grid-cols-3 gap-6">{data.rooms.map(r => (<Card key={r.id} className="p-6 hover:shadow-lg transition-all cursor-pointer group" onClick={()=>{setRoomView(r)}}><div className="flex items-center gap-4 mb-4"><div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-primary"><Icon name="Building" size={24}/></div><div><h3 className="font-bold text-lg">{r.name}</h3><p className="text-xs text-slate-500">{r.pic}</p></div></div><div className="text-center p-2 bg-slate-50 rounded font-bold text-sm text-slate-600">{r.items.length} Jenis Barang</div></Card>))}</div><Modal isOpen={showAddRoom} onClose={()=>setShowAddRoom(false)} title="Buat Ruangan"><div className="space-y-4"><Input placeholder="Nama Ruangan" onChange={e=>setFormRoom({...formRoom, name:e.target.value})}/><Input placeholder="Kode Ruangan" onChange={e=>setFormRoom({...formRoom, code:e.target.value})}/><Input placeholder="Penanggung Jawab" onChange={e=>setFormRoom({...formRoom, pic:e.target.value})}/><Input placeholder="Jurusan" onChange={e=>setFormRoom({...formRoom, dept:e.target.value})}/><Button className="w-full" onClick={handleAddRoom}>Simpan</Button></div></Modal></div>
+            );
+        };
+
+        const CreateLoan = ({ onBack, setView }) => {
+            const { data, updateData, getAvailableStock, addLog, syncData } = useContext(AppContext);
+            const [cart, setCart] = useState([]);
+            const [borrowerInfo, setBorrowerInfo] = useState({});
+            const [searchTerm, setSearchTerm] = useState("");
+
+            const availableItems = data.items.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
+            const addToCart = (item) => {
+                const exist = cart.find(c => c.id === item.id);
+                const max = getAvailableStock(item.id);
+                if (exist) { if (exist.qty < max) setCart(cart.map(c => c.id === item.id ? { ...c, qty: c.qty + 1 } : c)); else alert("Stok habis!"); } 
+                else { if (max > 0) setCart([...cart, { ...item, qty: 1 }]); else alert("Stok kosong!"); }
+            };
+            const handleSubmit = () => {
+                if(cart.length === 0 || !borrowerInfo.name) return alert("Data tidak lengkap!");
+                const newLoan = { id: Date.now(), borrower: borrowerInfo.name, activity: borrowerInfo.activity, dateOut: borrowerInfo.dateOut, dateReturn: borrowerInfo.dateReturn, status: 'Active', items: cart.map(c => ({ id: c.id, name: c.name, qty: c.qty })) };
+                const updatedLoans = [newLoan, ...data.loans];
+                updateData('loans', updatedLoans);
+                addLog("Peminjaman", `${borrowerInfo.name} meminjam ${cart.length} item`);
+                syncData('SYNC_ALL', { ...data, loans: updatedLoans });
+                setView('loans');
+            };
+
+            return (
+                <div className="space-y-6 animate-enter h-full flex flex-col"><div className="flex items-center gap-3"><Button variant="secondary" onClick={onBack}><Icon name="ArrowLeft"/></Button><h2 className="text-2xl font-bold">Buat Peminjaman</h2></div><div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 overflow-hidden"><Card className="md:col-span-2 flex flex-col p-4 overflow-hidden"><div className="mb-4 relative"><Icon name="Search" className="absolute left-3 top-2.5 text-slate-400" size={18}/><Input className="pl-10" placeholder="Cari barang..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div><div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">{availableItems.map(item => { const stock = getAvailableStock(item.id); return (<div key={item.id} className="flex justify-between items-center p-3 border rounded-xl hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => addToCart(item)}><div><p className="font-bold text-slate-800">{item.name}</p><p className="text-xs text-slate-500">Tersedia: <span className={stock > 0 ? "text-green-600 font-bold" : "text-red-500 font-bold"}>{stock}</span></p></div><Button size="icon" disabled={stock === 0}><Icon name="Plus" size={16}/></Button></div>); })}</div></Card><Card className="flex flex-col p-4 h-full"><h3 className="font-bold mb-4 flex items-center gap-2"><Icon name="User" size={18}/> Data Peminjam</h3><div className="space-y-3 mb-6"><Input placeholder="Nama Peminjam" onChange={e => setBorrowerInfo({...borrowerInfo, name: e.target.value})} /><Input placeholder="Kegiatan / Keperluan" onChange={e => setBorrowerInfo({...borrowerInfo, activity: e.target.value})} /><div className="grid grid-cols-2 gap-2"><Input type="date" onChange={e => setBorrowerInfo({...borrowerInfo, dateOut: e.target.value})} /><Input type="date" onChange={e => setBorrowerInfo({...borrowerInfo, dateReturn: e.target.value})} /></div></div><div className="flex-1 overflow-y-auto border-t pt-4"><h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Daftar Barang ({cart.length})</h4>{cart.map(c => (<div key={c.id} className="flex justify-between items-center mb-3 pb-3 border-b border-dashed"><div className="flex-1 truncate pr-2"><span className="text-sm font-bold block truncate">{c.name}</span></div><div className="flex items-center gap-2"><span className="text-xs font-bold bg-slate-100 px-2 py-1 rounded">x{c.qty}</span><button onClick={() => setCart(cart.filter(x=>x.id!==c.id))} className="text-red-500 hover:bg-red-50 p-1 rounded"><Icon name="Trash" size={14}/></button></div></div>))}</div><Button className="w-full mt-4" onClick={handleSubmit} disabled={cart.length === 0}>Simpan Transaksi</Button></Card></div></div>
+            );
+        };
+
+        const ReturnLoanModal = ({ loan, onClose, onConfirm }) => {
+            if(!loan) return null;
+            return (
+                <Modal isOpen={!!loan} onClose={onClose} title="Pengembalian Barang">
+                    <div className="space-y-4">
+                        <div className="p-3 bg-slate-50 rounded-lg">
+                            <p className="font-bold">{loan.borrower}</p>
+                            <p className="text-xs text-slate-500">Dipinjam: {loan.dateOut}</p>
+                        </div>
+                        <div className="space-y-2">
+                            {loan.items.map((item, i) => (
+                                <div key={i} className="flex items-center gap-3 border p-2 rounded bg-white">
+                                    <input type="checkbox" className="w-4 h-4 accent-primary" defaultChecked />
+                                    <div className="flex-1">
+                                        <p className="font-bold text-sm">{item.name}</p>
+                                        <p className="text-xs text-slate-500">{item.qty} Unit</p>
+                                    </div>
+                                    <select className="text-xs border rounded p-1"><option>Kondisi Baik</option><option>Rusak</option></select>
+                                    <Input placeholder="Catatan..." className="w-1/3 h-8 text-xs"/>
+                                </div>
+                            ))}
+                        </div>
+                        <Button className="w-full" onClick={onConfirm}>Selesaikan & Restock</Button>
+                    </div>
+                </Modal>
+            )
+        };
+
+        const LoansView = ({ setView }) => {
+            const { data, updateData, addLog, returnLoan } = useContext(AppContext);
+            const [tab, setTab] = useState('Active');
+            const [returnLoanData, setReturnLoanData] = useState(null);
+
+            const handleReturn = (id) => {
+                const loan = data.loans.find(l => l.id === id);
+                setReturnLoanData(loan);
+            }
+
+            const confirmReturn = () => {
+                returnLoan(returnLoanData.id, returnLoanData.items); 
+                setReturnLoanData(null);
+            };
+
+            const filtered = data.loans.filter(l => l.status === tab);
+
+            return (
+                <div className="space-y-6 animate-enter">
+                    <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-slate-800">Peminjaman</h2><Button onClick={() => setView('loans_create')}><Icon name="Plus" size={16}/> Baru</Button></div>
+                    <div className="flex gap-4 border-b border-slate-200">{['Active', 'Returned'].map(t => (<button key={t} onClick={() => setTab(t)} className={cn("pb-2 px-4 font-bold border-b-2 transition-colors", tab === t ? "border-primary text-primary" : "border-transparent text-slate-500 hover:text-slate-800")}>{t === 'Active' ? 'Sedang Dipinjam' : 'Riwayat Selesai'}</button>))}</div>
+                    <SmartTable data={filtered} columns={[{ header: "Peminjam", accessor: "borrower" }, { header: "Barang", render: r => <div>{r.items.map((i, idx) => <div key={idx} className="text-xs">• {i.name} ({i.qty})</div>)}</div> }, { header: "Tanggal", accessor: "dateOut" }, { header: "Status", render: r => <Badge color={r.status === 'Active' ? 'yellow' : 'green'}>{r.status}</Badge> }, { header: "Aksi", render: r => r.status==='Active' ? <Button size="sm" variant="outline" onClick={()=>handleReturn(r.id)}>Kembalikan</Button> : '-' }]} />
+                    <ReturnLoanModal loan={returnLoanData} onClose={()=>setReturnLoanData(null)} onConfirm={confirmReturn} />
+                </div>
+            );
+        };
+
+        const MaintenanceView = () => {
+             const { data, updateData, syncData } = useContext(AppContext);
+             const [showModal, setShowModal] = useState(false);
+             const [form, setForm] = useState({});
+             const addMaint = () => { 
+                const newMaint = [...data.maintenance, {...form, id: Date.now(), status: "In Progress"}];
+                updateData('maintenance', newMaint); 
+                syncData('SYNC_ALL', { ...data, maintenance: newMaint });
+                setShowModal(false); 
+             }
+             return (
+                 <div className="space-y-6 animate-enter"><div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-slate-800">Maintenance</h2><Button variant="danger" onClick={()=>setShowModal(true)}><Icon name="Plus"/> Lapor</Button></div><SmartTable data={data.maintenance} columns={[{ header: "Barang", accessor: "itemName" }, { header: "Masalah", accessor: "issue", className: "text-red-600 font-medium" }, { header: "Status", render: r => <Badge variant="danger">{r.status}</Badge> }, { header: "Aksi", render: r => <Button size="sm" variant="outline">Selesai</Button> }]} /><Modal isOpen={showModal} onClose={()=>setShowModal(false)} title="Lapor Kerusakan"><div className="space-y-4"><Input placeholder="Nama Barang" onChange={e=>setForm({...form, itemName:e.target.value})}/><Input placeholder="Masalah" onChange={e=>setForm({...form, issue:e.target.value})}/><Button className="w-full" variant="danger" onClick={addMaint}>Lapor</Button></div></Modal></div>
+             )
+        };
+
+        const ReportsView = () => {
+             const { data } = useContext(AppContext);
+             return (<div className="space-y-6 animate-enter"><h2 className="text-2xl font-bold text-slate-800">Laporan Aktivitas</h2><Card className="overflow-hidden"><table className="w-full text-left text-sm"><thead className="bg-slate-50 border-b"><tr><th className="p-4">Waktu</th><th className="p-4">Aktivitas</th><th className="p-4">Detail</th></tr></thead><tbody className="divide-y">{data.logs.map(l => (<tr key={l.id}><td className="p-4 text-xs text-slate-500 font-mono">{l.time}</td><td className="p-4 font-bold">{l.action}</td><td className="p-4 text-slate-600">{l.desc}</td></tr>))}</tbody></table></Card></div>);
+        };
+
+        const SettingsPage = () => {
+            const { scriptUrl, setScriptUrl, isConnected, loading, syncData, fetchData } = useContext(AppContext);
+            return (
+                <div className="max-w-xl space-y-6 animate-enter">
+                    <h2 className="text-2xl font-bold text-slate-800">Pengaturan</h2>
+                    <Card className="p-6 space-y-4">
+                        <div className="flex justify-between items-center border-b pb-2">
+                            <h3 className="font-bold">Koneksi Spreadsheet</h3>
+                            <Badge color={isConnected ? "green" : "red"}>{isConnected ? "Terhubung" : "Terputus"}</Badge>
+                        </div>
+                        <p className="text-sm text-slate-500">Masukkan URL Web App dari Google Apps Script.</p>
+                        <Input value={scriptUrl} onChange={e => {setScriptUrl(e.target.value); localStorage.setItem('gas_url', e.target.value)}} placeholder="https://script.google.com/..." />
+                        <div className="flex gap-2">
+                            <Button onClick={() => syncData()} disabled={loading}>{loading ? 'Menyimpan...' : 'Simpan ke Sheet'}</Button>
+                            <Button variant="secondary" onClick={() => fetchData()} disabled={loading}>Ambil Data</Button>
+                        </div>
+                    </Card>
+                    <Card className="p-6 space-y-4">
+                        <h3 className="font-bold border-b pb-2">Profil Instansi</h3>
+                        <Input defaultValue="Satpel PVP Jambi" />
+                        <Input defaultValue="Jl. Nusa Indah No. 1" />
+                        <Button className="w-full">Simpan Profil</Button>
+                    </Card>
+                </div>
+            );
+        };
+
+        // QR Inventory View - for displaying inventory when QR code is scanned
+        const QrInventoryView = () => {
+            const { data, loading, fetchData } = useContext(AppContext);
+            const [roomId, setRoomId] = useState(null);
+            const [room, setRoom] = useState(null);
+            const [items, setItems] = useState([]);
+
+            useEffect(() => {
+                // Extract room ID from URL hash
+                const hash = window.location.hash;
+                if (hash.startsWith('#room-')) {
+                    // Use string ID to preserve leading zeros and handle large numbers
+                    const idStr = hash.substring(7); // Remove '#room-' prefix, keep as string
+                    setRoomId(idStr);
+                }
+            }, []); // Empty dependency array to run only once
+
+            // Separate effect to trigger data fetch if needed
+            useEffect(() => {
+                if (roomId !== null && (!data.rooms || data.rooms.length === 0)) {
+                    console.log('No room data found, triggering data fetch...');
+                    fetchData();
+                }
+            }, [roomId, data.rooms, fetchData]);
+
+            useEffect(() => {
+                if (roomId !== null && data.rooms && data.items) {
+                    // Wait for data to be loaded before searching for room
+                    console.log('Looking for room ID:', roomId);
+                    console.log('Available rooms:', data.rooms);
+                    console.log('Room data length:', data.rooms ? data.rooms.length : 0);
+                    console.log('Item data length:', data.items ? data.items.length : 0);
+
+                    // Use multiple matching strategies to handle different ID formats
+                    let foundRoom = data.rooms.find(r => {
+                        // Strategy 1: Exact numeric match
+                        const roomIdNum = typeof r.id === 'string' ? parseInt(r.id) : r.id;
+                        const targetRoomId = typeof roomId === 'string' ? parseInt(roomId) : roomId;
+                        if (roomIdNum === targetRoomId) return true;
+
+                        // Strategy 2: String comparison (in case of leading zeros)
+                        if (String(r.id) === String(roomId)) return true;
+
+                        // Strategy 3: Compare as strings after removing leading zeros
+                        const rIdStr = String(r.id).replace(/^0+/, '');
+                        const targetIdStr = String(roomId).replace(/^0+/, '');
+                        return rIdStr === targetIdStr;
+                    });
+
+                    console.log('Found room:', foundRoom);
+
+                    if (foundRoom) {
+                        setRoom(foundRoom);
+
+                        // Ensure items array exists and is properly formatted
+                        const roomItems = Array.isArray(foundRoom.items) ? foundRoom.items : [];
+
+                        // Get detailed item information for this room
+                        const detailedItems = roomItems.map(ri => {
+                            // Handle both numeric and string item IDs
+                            if (!ri || typeof ri !== 'object') return null; // Skip if not an object
+
+                            const itemId = ri.itemId; // Keep original type first
+                            // Handle both numeric and string item IDs
+                            const normalizedItemId = typeof itemId === 'string' ? parseInt(itemId) : itemId;
+
+                            const item = data.items.find(i => {
+                                const iId = typeof i.id === 'string' ? parseInt(i.id) : i.id;
+                                return iId === normalizedItemId;
+                            });
+
+                            if (item && item.id) {
+                                return {
+                                    ...item,
+                                    qtyInRoom: ri.qty || ri.quantity || 1 // Support both qty and quantity properties, default to 1
+                                };
+                            }
+                            return null;
+                        }).filter(Boolean);
+
+                        console.log('Detailed items:', detailedItems);
+                        setItems(detailedItems);
+                    }
+                }
+            }, [roomId, data.rooms, data.items]); // Include specific dependencies
+
+            // Show loading state while waiting for data or searching for room
+            if (roomId === null || loading || (!room && (data.rooms === undefined || data.items === undefined))) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+                        <div className="text-center">
+                            <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4 animate-spin">
+                                <Icon name="Loader" size={32} className="text-white" />
+                            </div>
+                            <h2 className="text-xl font-bold text-slate-800">Memuat Data...</h2>
+                            <p className="text-slate-500">Sedang mencari informasi ruangan</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (!room && roomId !== null) { // Only show error after we've tried to find the room
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+                        <div className="text-center">
+                            <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Icon name="Database" size={32} className="text-white" />
+                            </div>
+                            <h2 className="text-xl font-bold text-slate-800 mb-2">Ruangan Tidak Ditemukan</h2>
+                            <p className="text-slate-500">Silakan periksa kembali kode QR yang Anda scan.</p>
+                            <p className="text-slate-500 text-sm mt-2">ID Ruangan: {roomId}</p>
+                            <Button className="mt-6" onClick={() => window.history.back() || (window.location.hash = '')}>Kembali</Button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-slate-50 py-8 px-4">
+                    <div className="max-w-4xl mx-auto">
+                        {/* Header */}
+                        <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div>
+                                    <h1 className="text-2xl font-bold text-slate-900">Kartu Inventaris Ruangan</h1>
+                                    <p className="text-slate-600">{room.name}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p className="text-slate-500">Kode Ruangan</p>
+                                        <p className="font-bold">{room.code || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-slate-500">Penanggung Jawab</p>
+                                        <p className="font-bold">{room.pic || '-'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Inventory Table */}
+                        <Card className="overflow-hidden">
+                            <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                                <h2 className="font-bold text-slate-800">Daftar Inventaris ({items.length} barang)</h2>
+                            </div>
+
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-slate-50 text-slate-500 border-b border-slate-100 font-bold uppercase text-[10px] tracking-wider">
+                                        <tr>
+                                            <th className="px-6 py-4 w-12">No</th>
+                                            <th className="px-6 py-4 min-w-[180px]">Nama Barang & Kode</th>
+                                            <th className="px-6 py-4 min-w-[120px]">Spesifikasi</th>
+                                            <th className="px-6 py-4 w-24">Tahun</th>
+                                            <th className="px-6 py-4 w-24">Jumlah</th>
+                                            <th className="px-6 py-4 w-32">Kondisi</th>
+                                            <th className="px-6 py-4 w-32">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {items.map((item, idx) => (
+                                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="px-6 py-4 font-bold">{idx + 1}</td>
+                                                <td className="px-6 py-4">
+                                                    <div>
+                                                        <p className="font-bold text-slate-900">{item.name}</p>
+                                                        <p className="text-sm text-slate-600 font-mono">{item.code}</p>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div>
+                                                        <p>{item.brand || '-'}</p>
+                                                        <p className="text-sm text-slate-600">{item.model || '-'}</p>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <p>{item.year || '-'}</p>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <div className="font-bold text-lg text-slate-900">{item.qtyInRoom}</div>
+                                                    <div className="text-xs text-slate-500">Unit</div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="space-y-1">
+                                                        <div className="text-sm">
+                                                            <span className="font-bold text-emerald-600">Baik:</span> <span className="font-medium">{item.condGood || 0}</span>
+                                                        </div>
+                                                        <div className="text-sm">
+                                                            <span className="font-bold text-amber-600">R. Ringan:</span> <span className="font-medium">{Math.max(0, (item.qtyInRoom || 0) - (item.condGood || 0) - (item.condBad || 0))}</span>
+                                                        </div>
+                                                        <div className="text-sm">
+                                                            <span className="font-bold text-red-600">Rusak:</span> <span className="font-medium">{item.condBad || 0}</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="space-y-1">
+                                                        <div className="text-sm">
+                                                            <span className="font-bold text-emerald-600">Tersedia:</span> <span className="font-medium">{item.condGood || 0}</span>
+                                                        </div>
+                                                        <div className="text-sm">
+                                                            <span className="font-bold text-amber-600">Dipinjam:</span> <span className="font-medium">{Math.max(0, (item.qtyInRoom || 0) - (item.condGood || 0) - (item.condBad || 0))}</span>
+                                                        </div>
+                                                        <div className="text-sm">
+                                                            <span className="font-bold text-red-600">Perbaikan:</span> <span className="font-medium">{item.condBad || 0}</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {items.length === 0 && (
+                                            <tr>
+                                                <td colSpan="7" className="p-8 text-center text-slate-400 italic">
+                                                    Tidak ada barang dalam ruangan ini.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </Card>
+
+                        {/* Footer */}
+                        <div className="mt-8 text-center text-slate-500 text-sm">
+                            <p>Scan QR KIR - SIBA Enterprise - Satpel PVP Jambi</p>
+                            <p className="mt-1">Dicetak pada: {new Date().toLocaleString('id-ID')}</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // QR Item View - for displaying individual item when item QR code is scanned
+        const QrItemView = () => {
+            const { data, loading, fetchData } = useContext(AppContext);
+            const [itemId, setItemId] = useState(null);
+            const [item, setItem] = useState(null);
+
+            useEffect(() => {
+                // Extract item ID from URL hash
+                const hash = window.location.hash;
+                if (hash.startsWith('#item-')) {
+                    // Use string ID to preserve leading zeros and handle large numbers
+                    const idStr = hash.substring(6); // Remove '#item-' prefix, keep as string
+                    setItemId(idStr);
+                }
+            }, []); // Empty dependency array to run only once
+
+            // Separate effect to trigger data fetch if needed
+            useEffect(() => {
+                if (itemId !== null && (!data.items || data.items.length === 0)) {
+                    console.log('No item data found, triggering data fetch...');
+                    fetchData();
+                }
+            }, [itemId, data.items, fetchData]);
+
+            useEffect(() => {
+                if (itemId !== null && data.items) {
+                    // Wait for data to be loaded before searching for item
+                    console.log('Looking for item ID:', itemId);
+                    console.log('Available items:', data.items);
+                    console.log('Item data length:', data.items ? data.items.length : 0);
+
+                    // Use multiple matching strategies to handle different ID formats
+                    let foundItem = data.items.find(i => {
+                        // Strategy 1: Exact numeric match
+                        const itemIdNum = typeof i.id === 'string' ? parseInt(i.id) : i.id;
+                        const targetItemId = typeof itemId === 'string' ? parseInt(itemId) : itemId;
+                        if (itemIdNum === targetItemId) return true;
+
+                        // Strategy 2: String comparison (in case of leading zeros)
+                        if (String(i.id) === String(itemId)) return true;
+
+                        // Strategy 3: Compare as strings after removing leading zeros
+                        const iIdStr = String(i.id).replace(/^0+/, '');
+                        const targetIdStr = String(itemId).replace(/^0+/, '');
+                        return iIdStr === targetIdStr;
+                    });
+
+                    console.log('Found item:', foundItem);
+
+                    if (foundItem) {
+                        setItem(foundItem);
+                    }
+                }
+            }, [itemId, data.items]);
+
+            // Generate QR code for the item
+            useEffect(() => {
+                if (item) {
+                    // Use setTimeout to ensure DOM element is rendered before generating QR code
+                    setTimeout(() => {
+                        const canvas = document.getElementById('item-qr-details');
+                        if (canvas) {
+                            const itemUrl = `${window.location.origin}${window.location.pathname}#item-${item.id}`;
+                            const qr = new QRious({
+                                element: canvas,
+                                value: itemUrl,
+                                size: 128
+                            });
+                        }
+                    }, 100); // Small delay to ensure rendering
+                }
+            }, [item]);
+
+            // Show loading state while waiting for data or searching for item
+            if (itemId === null || loading || (!item && data.items === undefined)) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+                        <div className="text-center">
+                            <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4 animate-spin">
+                                <Icon name="Loader" size={32} className="text-white" />
+                            </div>
+                            <h2 className="text-xl font-bold text-slate-800">Memuat Data...</h2>
+                            <p className="text-slate-500">Sedang mencari informasi barang</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (!item && itemId !== null) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+                        <div className="text-center">
+                            <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Icon name="Package" size={32} className="text-white" />
+                            </div>
+                            <h2 className="text-xl font-bold text-slate-800 mb-2">Barang Tidak Ditemukan</h2>
+                            <p className="text-slate-500">Silakan periksa kembali kode QR yang Anda scan.</p>
+                            <p className="text-slate-500 text-sm mt-2">ID Barang: {itemId}</p>
+                            <Button className="mt-6" onClick={() => window.history.back() || (window.location.hash = '')}>Kembali</Button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-slate-50 py-8 px-4">
+                    <div className="max-w-3xl mx-auto">
+                        {/* Header */}
+                        <div className="bg-white rounded-xl shadow-sm border p-6 mb-6 text-center">
+                            <h1 className="text-2xl font-bold text-slate-900">Informasi Barang</h1>
+                            <p className="text-slate-600">Detail lengkap inventaris</p>
+                        </div>
+
+                        {/* Item Detail Card */}
+                        <Card className="overflow-hidden">
+                            <div className="p-6 space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <h2 className="text-lg font-bold text-slate-900 mb-4">Informasi Barang</h2>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between border-b pb-2">
+                                                <span className="text-slate-500">Nama Barang:</span>
+                                                <span className="font-bold text-slate-800">{item.name}</span>
+                                            </div>
+                                            <div className="flex justify-between border-b pb-2">
+                                                <span className="text-slate-500">Kode Barang:</span>
+                                                <span className="font-mono font-medium text-slate-800">{item.code}</span>
+                                            </div>
+                                            <div className="flex justify-between border-b pb-2">
+                                                <span className="text-slate-500">Merk/Model:</span>
+                                                <span className="text-slate-800">{item.brand || '-'}/{item.model || '-'}</span>
+                                            </div>
+                                            <div className="flex justify-between border-b pb-2">
+                                                <span className="text-slate-500">Tahun:</span>
+                                                <span className="text-slate-800">{item.year || '-'}</span>
+                                            </div>
+                                            <div className="flex justify-between border-b pb-2">
+                                                <span className="text-slate-500">Anggaran Per Unit:</span>
+                                                <span className="text-slate-800">{formatCurrency(item.price || 0)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h2 className="text-lg font-bold text-slate-900 mb-4">Status & Kondisi</h2>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between border-b pb-2">
+                                                <span className="text-slate-500">Jumlah Total:</span>
+                                                <span className="font-bold text-lg text-slate-800">{item.stock}</span>
+                                            </div>
+                                            <div className="flex justify-between border-b pb-2">
+                                                <span className="text-slate-500">Kondisi Baik:</span>
+                                                <span className="font-bold text-emerald-600">{item.condGood}</span>
+                                            </div>
+                                            <div className="flex justify-between border-b pb-2">
+                                                <span className="text-slate-500">Kondisi Rusak:</span>
+                                                <span className="font-bold text-red-600">{item.condBad}</span>
+                                            </div>
+                                            <div className="flex justify-between border-b pb-2">
+                                                <span className="text-slate-500">Status:</span>
+                                                <span className="font-bold">
+                                                    <Badge color={item.stock > 0 ? "green" : "red"}>
+                                                        {item.stock > 0 ? "Tersedia" : "Habis"}
+                                                    </Badge>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* QR Code for this specific item */}
+                                <div className="pt-4 border-t border-slate-100">
+                                    <h2 className="text-lg font-bold text-slate-900 mb-4 text-center">QR Code Barang</h2>
+                                    <div className="flex justify-center">
+                                        <canvas id="item-qr-details" className="bg-white p-3"></canvas>
+                                    </div>
+                                    <p className="text-center text-sm text-slate-500 mt-2">Scan QR ini untuk kembali ke detail barang</p>
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* Footer */}
+                        <div className="mt-8 text-center text-slate-500 text-sm">
+                            <p>Scan QR Barang - SIBA Enterprise - Satpel PVP Jambi</p>
+                            <p className="mt-1">Dicetak pada: {new Date().toLocaleString('id-ID')}</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- MAIN SHELL ---
+        const Sidebar = ({ view, setView }) => {
+            const menus = [
+                { id: 'dashboard', label: 'Dashboard', icon: 'Dashboard' },
+                { id: 'inventory', label: 'Data Barang', icon: 'Package' },
+                { id: 'kir', label: 'KIR Ruangan', icon: 'Building' },
+                { id: 'loans', label: 'Peminjaman', icon: 'ArrowLeftRight' },
+                { id: 'maintenance', label: 'Maintenance', icon: 'Wrench' },
+                { id: 'reports', label: 'Laporan', icon: 'FileText' },
+                { id: 'settings', label: 'Pengaturan', icon: 'Settings' }
+            ];
+            
+            const { isConnected, isSyncing } = useContext(AppContext);
+
+            return (
+                <aside className="w-64 bg-white border-r h-screen fixed left-0 top-0 hidden md:flex flex-col z-20 shadow-sm no-print">
+                    <div className="h-16 flex items-center px-6 border-b"><div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white mr-3 font-bold">S</div><h1 className="font-bold text-lg">SIBA Admin</h1></div>
+                    <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
+                        {menus.map(m => (
+                            <button key={m.id} onClick={() => setView(m.id)} className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all", view === m.id || view.startsWith(m.id) ? "bg-primary text-white shadow-md shadow-primary/20" : "text-slate-600 hover:bg-slate-50")}>
+                                <Icon name={m.icon} size={18}/> {m.label}
+                            </button>
+                        ))}
+                    </nav>
+                    <div className="p-4 border-t bg-slate-50">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-1">
+                            <span>Status Database</span>
+                            <span className={cn("w-2 h-2 rounded-full", isSyncing ? "bg-yellow-400 animate-pulse" : isConnected ? "bg-green-500" : "bg-red-500")}></span>
+                        </div>
+                        <p className="text-[10px] text-slate-400">{isSyncing ? "Menyimpan..." : isConnected ? "Terhubung" : "Offline"}</p>
+                    </div>
+                </aside>
+            );
+        };
+
+        const App = () => {
+            return (
+                <AppProvider>
+                    <MainContent />
+                </AppProvider>
+            );
+        };
+
+        const MainContent = () => {
+            const [view, setView] = useState('dashboard');
+            const [detailItem, setDetailItem] = useState(null);
+
+            // Check if this is a QR scan view (URL has room or item hash)
+            const [hash, setHash] = useState(window.location.hash);
+
+            // Update hash when URL changes
+            useEffect(() => {
+                const handleHashChange = () => {
+                    setHash(window.location.hash);
+                };
+
+                // Check if this is a direct load with a QR hash
+                if (window.location.hash.startsWith('#room-') || window.location.hash.startsWith('#item-')) {
+                    setHash(window.location.hash);
+                }
+
+                window.addEventListener('hashchange', handleHashChange);
+                return () => window.removeEventListener('hashchange', handleHashChange);
+            }, []);
+
+            const isRoomQrView = hash.startsWith('#room-');
+            const isItemQrView = hash.startsWith('#item-');
+            const isQrView = isRoomQrView || isItemQrView;
+
+            return (
+                <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
+                    {!isQrView && <Sidebar view={view} setView={setView} />}
+                    <main className={`flex-1 ${!isQrView ? 'md:ml-64' : ''} p-8 overflow-y-auto h-screen`}>
+                        {isRoomQrView ? (
+                            <QrInventoryView />
+                        ) : isItemQrView ? (
+                            <QrItemView />
+                        ) : (
+                            <>
+                                {view === 'dashboard' && <Dashboard />}
+                                {view === 'inventory' && <Inventory setView={setView} setDetailItem={setDetailItem} />}
+                                {view === 'inventory-detail' && <InventoryDetail item={detailItem} onBack={() => setView('inventory')} />}
+                                {view === 'loans' && <LoansView setView={setView} />}
+                                {view === 'loans_create' && <CreateLoan onBack={() => setView('loans')} setView={setView} />}
+                                {view === 'kir' && <KIRModule />}
+                                {view === 'maintenance' && <MaintenanceView />}
+                                {view === 'reports' && <ReportsView />}
+                                {view === 'settings' && <SettingsPage />}
+                            </>
+                        )}
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
