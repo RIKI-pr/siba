@@ -17,7 +17,7 @@
                     fontFamily: {
                         sans: ['"Plus Jakarta Sans"', 'sans-serif'],
                         mono: ['"JetBrains Mono"', 'monospace'],
-                        serif: ['"Lora"', 'serif'],
+                        serif: ['"Times New Roman"', 'Times', 'serif'],
                     },
                     colors: {
                         primary: { DEFAULT: '#4f46e5', 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 900: '#312e81' },
@@ -49,48 +49,49 @@
         
         /* Print Styling - A4 Configuration */
         @media print { 
-            @page { size: A4; margin: 5mm; }
-            body { background: white; font-size: 11px; -webkit-print-color-adjust: exact; }
+            @page { size: A4; margin: 10mm; } 
+            body { background: white; font-size: 11px; -webkit-print-color-adjust: exact; margin: 0; padding: 0; }
             
             /* Hide UI Elements */
-            .no-print, aside, header, .pagination-controls, button, .modal-close-btn { display: none !important; }
+            .no-print, aside, header, .pagination-controls, button, .modal-close-btn, .screen-only-bg { display: none !important; }
             
             /* Reset Layout for Print */
             .main-content { margin-left: 0 !important; padding: 0 !important; width: 100% !important; }
-            .print-area { display: block !important; width: 100% !important; background: white; }
+            .print-area { display: block !important; width: 100% !important; background: white; box-shadow: none !important; margin: 0 !important; padding: 0 !important;}
             
-            /* Specific Print Styles */
-            .shadow-card { box-shadow: none !important; border: 1px solid #000 !important; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #000; padding: 4px; color: black !important; }
+            /* Page Break Handling */
+            .page-break { page-break-before: always; }
             
-            /* Ensure breaks are handled */
-            .break-inside-avoid { page-break-inside: avoid; }
-            
-            /* Show only the active print view */
-            body > * { display: none; }
-            body > #root { display: block; }
-            #root > * { display: none; }
-            #root > div { display: block; } 
+            /* Label Grid Print Fix */
+            .label-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px; /* Jarak antar label di kertas */
+            }
+            .label-card {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
         }
         
         .print-only { display: none; }
         input, select, textarea { font-size: 16px !important; } /* Prevent iOS zoom */
-        
-        /* Force smaller text in selects specifically */
         select.small-text { font-size: 11px !important; }
 
         /* A4 Preview Helper for Screen */
         .a4-page {
             width: 210mm;
             min-height: 297mm;
-            padding: 10mm;
+            padding: 10mm; /* Padding simulasi margin kertas */
             margin: 0 auto;
             background: white;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            position: relative;
         }
+        /* Mobile adjustment for A4 preview */
         @media (max-width: 768px) {
-            .a4-page { width: 100%; padding: 10px; }
+            .a4-page { width: 100%; padding: 5mm; min-height: auto; box-shadow: none; border: 1px solid #eee; }
+            .label-grid { grid-template-columns: 1fr !important; } 
         }
     </style>
 </head>
@@ -313,34 +314,6 @@
             );
         };
 
-        // --- DESKTOP HEADER ---
-        const DesktopHeader = ({ toggleSidebar }) => {
-            const { isConnected, isSyncing } = useContext(AppContext);
-            return (
-                <header className="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-6 sticky top-0 z-20 no-print">
-                    <button onClick={toggleSidebar} className="p-2 hover:bg-slate-100 rounded-md text-slate-600 transition-colors">
-                        <Icon name="Menu" size={24}/>
-                    </button>
-                    <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-2">
-                            <span className={cn("w-2.5 h-2.5 rounded-full", isSyncing ? "bg-yellow-400 animate-pulse" : isConnected ? "bg-emerald-500" : "bg-red-500")}></span>
-                            <span className="text-sm font-medium text-slate-600">{isSyncing ? "Menyimpan..." : isConnected ? "Terhubung ke Database" : "Offline"}</span>
-                        </div>
-                        <div className="h-6 w-px bg-slate-200"></div>
-                        <div className="flex items-center gap-3">
-                            <div className="text-right hidden lg:block">
-                                <p className="text-sm font-bold text-slate-800">Administrator</p>
-                                <p className="text-xs text-slate-500">Satpel PVP</p>
-                            </div>
-                            <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-200 transition-colors cursor-pointer">
-                                <Icon name="User" size={20} />
-                            </div>
-                        </div>
-                    </div>
-                </header>
-            )
-        }
-
         // --- SIDEBAR ---
         const Sidebar = ({ view, setView, open, setOpen, desktopOpen }) => {
             const menus = [
@@ -400,6 +373,278 @@
                 </>
             );
         };
+
+        // --- SUB-COMPONENTS FOR KIR (PRINTING) ---
+        const PrintLabelView = ({ room, items, onBack }) => {
+            useEffect(() => {
+                setTimeout(() => {
+                    items.forEach((item, idx) => {
+                        const el = document.getElementById(`lbl-qr-${idx}`);
+                        if(el) new QRious({ element: el, value: `${window.location.origin}${window.location.pathname}#item-${item.id}`, size: 150 });
+                    });
+                }, 500);
+            }, [items]);
+
+            return (
+                <div className="space-y-4 animate-enter">
+                     <div className="flex justify-between items-center no-print bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                        <h2 className="font-bold text-lg">Cetak Label BMN ({items.length})</h2>
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={onBack}>Kembali</Button>
+                            <Button onClick={()=>window.print()}>Print</Button>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-white p-8 min-h-screen a4-page" id="print-area">
+                        <style>{`
+                            @media print {
+                                @page { size: A4; margin: 5mm; } 
+                                .label-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; row-gap: 12px; }
+                                .label-card { 
+                                    border: 2px solid black; 
+                                    background: white; 
+                                    font-family: "Times New Roman", Times, serif; 
+                                    color: black; 
+                                    page-break-inside: avoid;
+                                    height: fit-content;
+                                }
+                                .label-card-inner {
+                                    border: 1px solid black;
+                                    margin: 2px;
+                                    padding: 4px;
+                                    display: flex;
+                                    flex-direction: column;
+                                }
+                                body { -webkit-print-color-adjust: exact; background: white; }
+                                .no-print, header, aside, .shadow-card { display: none !important; }
+                            }
+                            .label-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+                            .label-card { border: 2px solid black; background: white; font-family: "Times New Roman", Times, serif; color: black; }
+                            .label-card-inner { border: 1px solid black; margin: 2px; padding: 4px; display: flex; flex-direction: column; }
+                            @media (max-width: 768px) { .label-grid { grid-template-columns: repeat(1, 1fr); } }
+                        `}</style>
+                        
+                        <div className="label-grid">
+                            {items.map((l, i) => (
+                                <div key={i} className="label-card">
+                                    <div className="label-card-inner">
+                                        <div className="flex items-center gap-1 border-b-2 border-black pb-1 mb-1">
+                                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Lambang_Kementerian_Ketenagakerjaan_RI.png/600px-Lambang_Kementerian_Ketenagakerjaan_RI.png" alt="Logo" className="h-8 w-8 object-contain"/>
+                                            <div className="text-center flex-1 leading-none">
+                                                <div className="text-[6px] font-bold uppercase tracking-wider">Barang Milik Negara</div>
+                                                <div className="text-[7px] font-black uppercase tracking-tight my-0.5">Kementerian Ketenagakerjaan RI</div>
+                                                <div className="text-[6px] font-bold uppercase">Satpel PVP Jambi</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex justify-between items-stretch">
+                                            <div className="flex-1 pr-1 space-y-1">
+                                                <div>
+                                                    <div className="flex justify-between items-end">
+                                                        <span className="block text-[6px] text-gray-600 uppercase font-bold tracking-wider">Kode Barang</span>
+                                                        <span className="block text-[7px] font-black bg-black text-white px-1 rounded-sm">{l.num}/{l.total}</span>
+                                                    </div>
+                                                    <span className="block text-[9px] font-bold font-mono tracking-tight bg-gray-100 px-1 border border-gray-400 inline-block w-full text-center mt-0.5">
+                                                        {l.code}
+                                                    </span>
+                                                </div>
+
+                                                <div>
+                                                    <span className="block text-[6px] text-gray-600 uppercase font-bold tracking-wider">Nama Barang</span>
+                                                    <span className="block text-[8px] font-bold leading-tight line-clamp-2">{l.name}</span>
+                                                </div>
+
+                                                <div className="flex gap-1 border-t border-gray-300 pt-0.5 mt-0.5">
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="block text-[6px] text-gray-600 uppercase font-bold">Merk/Tipe</span>
+                                                        <span className="block text-[7px] leading-tight truncate">{l.brand} {l.model}</span>
+                                                    </div>
+                                                    <div className="shrink-0 text-right">
+                                                        <span className="block text-[6px] text-gray-600 uppercase font-bold">Thn</span>
+                                                        <span className="block text-[7px] font-bold">{l.year || '-'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="shrink-0 flex flex-col items-center justify-center border-l-2 border-dotted border-gray-300 pl-1 w-20">
+                                                <canvas id={`lbl-qr-${i}`} className="w-18 h-18" style={{ width: '60px', height: '60px' }}></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const PrintQrRoomView = ({ room, onBack }) => {
+            useEffect(() => {
+                setTimeout(() => {
+                    const canvas = document.getElementById('room-qr-canvas');
+                    if (canvas) {
+                        new QRious({ element: canvas, value: `${window.location.origin}${window.location.pathname}#room-${room.id}`, size: 256 });
+                    }
+                }, 300);
+            }, [room]);
+            
+            return (
+                <div className="space-y-4 animate-enter">
+                     <div className="flex justify-between items-center no-print bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                        <h2 className="font-bold text-lg">Cetak QR Ruangan</h2>
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={onBack}>Kembali</Button>
+                            <Button onClick={()=>window.print()}>Print</Button>
+                        </div>
+                    </div>
+                    
+                    <div className="flex justify-center p-8 bg-white a4-page" id="print-area">
+                         <style>{`
+                            @media print {
+                                @page { size: A4; margin: 10mm; }
+                                .a4-page { width: 100%; height: auto; box-shadow: none; margin: 0; padding: 0; }
+                                 body { -webkit-print-color-adjust: exact; background: white; }
+                                .no-print, header, aside, .shadow-card { display: none !important; }
+                            }
+                        `}</style>
+                        <div className="border-4 border-black p-8 text-center max-w-md w-full h-fit self-center">
+                            <h2 className="text-2xl font-black mb-4 uppercase">KARTU INVENTARIS RUANGAN</h2>
+                            <h3 className="text-xl font-bold mb-8">{room.name}</h3>
+                            <div className="flex justify-center mb-8"><canvas id="room-qr-canvas" className="w-64 h-64"></canvas></div>
+                            <p className="font-mono text-sm">Scan untuk melihat daftar inventaris</p>
+                            <div className="mt-8 text-left text-sm border-t pt-4">
+                                <p><b>Kode Ruangan:</b> {room.code}</p>
+                                <p><b>PIC:</b> {room.pic}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        };
+
+        const PrintKirListView = ({ room, items, onBack, exportFn }) => {
+            return (
+                <div className="space-y-4 animate-enter">
+                    <div className="flex justify-between items-center no-print bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                        <h2 className="font-bold text-lg">Cetak KIR (Daftar Barang)</h2>
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={onBack}>Kembali</Button>
+                            <Button variant="outline" onClick={exportFn}>Download Word</Button>
+                            <Button onClick={()=>window.print()}>Print</Button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-8 min-h-screen a4-page" id="kir-print-area">
+                        <style>{`
+                            @media print {
+                                @page { size: A4; margin: 10mm; }
+                                 body { -webkit-print-color-adjust: exact; background: white; }
+                                .no-print, header, aside, .shadow-card { display: none !important; }
+                            }
+                        `}</style>
+                        <div className="text-center mb-6 border-b-2 border-black pb-4">
+                            <h2 className="text-xl font-bold uppercase">PEMERINTAH PROVINSI JAMBI</h2>
+                            <h3 className="text-lg font-bold">DINAS PENDIDIKAN</h3>
+                            <h1 className="text-2xl font-black mt-2">KARTU INVENTARIS RUANGAN (KIR)</h1>
+                        </div>
+
+                        <div className="flex justify-between mb-6 text-sm">
+                            <table>
+                                <tbody>
+                                    <tr><td className="w-32 font-bold">Provinsi</td><td>: Jambi</td></tr>
+                                    <tr><td className="font-bold">Unit</td><td>: Satpel PVP Jambi</td></tr>
+                                    <tr><td className="font-bold">Ruangan</td><td>: {room.name}</td></tr>
+                                </tbody>
+                            </table>
+                            <table>
+                                <tbody>
+                                    <tr><td className="w-32 font-bold">Kode Ruangan</td><td>: {room.code}</td></tr>
+                                    <tr><td className="font-bold">Penanggung Jawab</td><td>: {room.pic}</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <table className="w-full border-collapse border border-black text-sm mb-8">
+                            <thead>
+                                <tr className="bg-gray-100">
+                                    <th className="border border-black p-2 w-12 text-center">No</th>
+                                    <th className="border border-black p-2 text-left">Nama Barang</th>
+                                    <th className="border border-black p-2 text-left">Merk / Type</th>
+                                    <th className="border border-black p-2 w-24 text-center">Tahun</th>
+                                    <th className="border border-black p-2 w-16 text-center">Jumlah</th>
+                                    <th className="border border-black p-2 w-24 text-center">Satuan</th>
+                                    <th className="border border-black p-2 w-24 text-center">Kondisi</th>
+                                    <th className="border border-black p-2 text-left">Ket</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {items.map((item, idx) => (
+                                    <tr key={idx}>
+                                        <td className="border border-black p-2 text-center">{idx + 1}</td>
+                                        <td className="border border-black p-2">
+                                            <div className="font-bold">{item.name}</div>
+                                            <div className="text-xs">{item.code}</div>
+                                        </td>
+                                        <td className="border border-black p-2">{item.brand} / {item.model}</td>
+                                        <td className="border border-black p-2 text-center">{item.year}</td>
+                                        <td className="border border-black p-2 text-center font-bold">{item.qtyInRoom}</td>
+                                        <td className="border border-black p-2 text-center">{item.unit || 'Unit'}</td>
+                                        <td className="border border-black p-2 text-center">Baik</td> 
+                                        <td className="border border-black p-2"></td>
+                                    </tr>
+                                ))}
+                                {items.length === 0 && <tr><td colSpan="8" className="border border-black p-4 text-center italic">Tidak ada barang</td></tr>}
+                            </tbody>
+                        </table>
+
+                        <div className="flex justify-between mt-12 text-center break-inside-avoid">
+                            <div>
+                                <p>Mengetahui,</p>
+                                <p className="font-bold mb-16">Kepala Satpel</p>
+                                <p className="font-bold underline">( ........................................ )</p>
+                                <p>NIP.</p>
+                            </div>
+                            <div>
+                                <p>Jambi, {new Date().toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
+                                <p className="font-bold mb-16">Penanggung Jawab Ruangan</p>
+                                <p className="font-bold underline">{room.pic}</p>
+                                <p>NIP.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+
+        // --- DESKTOP HEADER ---
+        const DesktopHeader = ({ toggleSidebar }) => {
+            const { isConnected, isSyncing } = useContext(AppContext);
+            return (
+                <header className="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-6 sticky top-0 z-20 no-print">
+                    <button onClick={toggleSidebar} className="p-2 hover:bg-slate-100 rounded-md text-slate-600 transition-colors">
+                        <Icon name="Menu" size={24}/>
+                    </button>
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2">
+                            <span className={cn("w-2.5 h-2.5 rounded-full", isSyncing ? "bg-yellow-400 animate-pulse" : isConnected ? "bg-emerald-500" : "bg-red-500")}></span>
+                            <span className="text-sm font-medium text-slate-600">{isSyncing ? "Menyimpan..." : isConnected ? "Terhubung ke Database" : "Offline"}</span>
+                        </div>
+                        <div className="h-6 w-px bg-slate-200"></div>
+                        <div className="flex items-center gap-3">
+                            <div className="text-right hidden lg:block">
+                                <p className="text-sm font-bold text-slate-800">Administrator</p>
+                                <p className="text-xs text-slate-500">Satpel PVP</p>
+                            </div>
+                            <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200 text-slate-500 hover:bg-slate-200 transition-colors cursor-pointer">
+                                <Icon name="User" size={20} />
+                            </div>
+                        </div>
+                    </div>
+                </header>
+            )
+        }
 
         // --- SMART TABLE (MULTI-FILTER) ---
         const SmartTable = ({ data = [], columns, onRowClick, actions, filterDefs = [], renderMobileItem }) => {
@@ -470,7 +715,7 @@
                                         <label className="text-[10px] font-bold text-slate-500 uppercase sm:hidden md:block">{def.label}:</label>
                                         <div className="relative">
                                             <select 
-                                                className="appearance-none h-7 w-full sm:w-28 pl-2 pr-6 rounded-lg border border-slate-200 bg-white text-[10px] font-medium text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all cursor-pointer py-1 small-text"
+                                                className="appearance-none h-7 w-full sm:w-28 pl-2 pr-6 rounded-lg border border-slate-200 bg-white text-[11px] font-medium text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all cursor-pointer py-1 small-text"
                                                 value={activeFilters[def.key] || 'all'}
                                                 onChange={e => handleFilterChange(def.key, e.target.value)}
                                             >
@@ -726,7 +971,6 @@
                     render: r => (
                         <div className="whitespace-nowrap">
                             <p className="font-semibold text-slate-800 text-[13px]">{r.name}</p>
-                            {/* Kode Barang: Kotak Kecil, Abu-abu Muda (Tidak Gelap) */}
                             <span className="inline-block mt-0.5 px-1.5 py-px rounded-sm text-[10px] font-mono font-medium bg-slate-100 text-slate-500 border border-slate-100 leading-tight">
                                 {r.code}
                             </span>
@@ -832,7 +1076,6 @@
                         <div className="flex justify-between items-start mb-3">
                             <div>
                                 <h3 className="font-semibold text-slate-900 text-base leading-tight">{r.name}</h3>
-                                {/* Kode Barang Mobile: Padding Kecil & Font Mono */}
                                 <span className="inline-block mt-0.5 px-1.5 py-px rounded-sm text-[10px] font-mono font-medium bg-slate-100 text-slate-500 border border-slate-100 leading-tight">
                                     {r.code}
                                 </span>
@@ -1039,7 +1282,19 @@
                             <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Nama Barang</label><Input value={editForm.name || ''} onChange={e => setEditForm({...editForm, name: e.target.value})} /></div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Kode</label><Input value={editForm.code || ''} onChange={e => setEditForm({...editForm, code: e.target.value})} /></div>
-                                <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Stok Total</label><Input type="number" value={editForm.stock || ''} onChange={e => setEditForm({...editForm, stock: e.target.value})} /></div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Stok Total</label>
+                                    <div className="flex gap-2">
+                                        <Input type="number" value={editForm.stock || ''} onChange={e => setEditForm({...editForm, stock: e.target.value})} className="flex-1" />
+                                        <select 
+                                            className="w-24 px-2 py-2.5 rounded-md border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                            value={editForm.unit || 'Unit'}
+                                            onChange={e => setEditForm({...editForm, unit: e.target.value})}
+                                        >
+                                            {UNIT_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
                              <div className="grid grid-cols-2 gap-4">
                                 <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Brand</label><Input value={editForm.brand || ''} onChange={e => setEditForm({...editForm, brand: e.target.value})} /></div>
@@ -1118,50 +1373,102 @@
             const LabelView = () => {
                 useEffect(() => {
                     setTimeout(() => {
-                        let idx = 0;
-                        roomView.items.forEach(ri => {
-                            const item = data.items.find(i => i.id === ri.itemId);
-                            if(item) {
-                                for(let i=0; i<ri.qty; i++) {
-                                    const el = document.getElementById(`lbl-qr-${idx}`);
-                                    if(el) new QRious({ element: el, value: `${window.location.origin}${window.location.pathname}#item-${item.id}`, size: 80 });
-                                    idx++;
-                                }
-                            }
+                        allLabels.forEach((l, idx) => {
+                            const el = document.getElementById(`lbl-qr-${idx}`);
+                            if(el) new QRious({ element: el, value: `${window.location.origin}${window.location.pathname}#item-${l.id}`, size: 150 });
                         });
                     }, 500);
                 }, []);
 
                 let allLabels = [];
-                roomView.items.forEach(ri => {
-                    const item = data.items.find(i => i.id === ri.itemId);
-                    if(item) {
-                        for(let i=1; i<=ri.qty; i++) allLabels.push({ ...item, num: `${i}/${ri.qty}` });
-                    }
-                });
+                if(roomView && roomView.items) {
+                    roomView.items.forEach(ri => {
+                        const item = data.items.find(i => i.id === ri.itemId);
+                        if(item) {
+                            for(let i=1; i<=ri.qty; i++) {
+                                // Tambahkan properti seq dan total untuk 1/N
+                                allLabels.push({ ...item, num: i, total: ri.qty, seq: `${i}/${ri.qty}` });
+                            }
+                        }
+                    });
+                }
 
                 return (
                     <div className="space-y-4 animate-enter">
                          <div className="flex justify-between items-center no-print bg-white p-4 rounded-lg shadow-sm border border-slate-200">
-                            <h2 className="font-bold text-lg">Cetak Label ({allLabels.length})</h2>
+                            <h2 className="font-bold text-lg">Cetak Label BMN ({allLabels.length})</h2>
                             <div className="flex gap-2">
                                 <Button variant="outline" onClick={()=>setSubView('room-detail')}>Kembali</Button>
                                 <Button onClick={()=>window.print()}>Print</Button>
                             </div>
                         </div>
                         
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 print:grid-cols-3 print:gap-1" id="print-area">
-                            {allLabels.map((l, i) => (
-                                <div key={i} className="border border-black p-2 h-28 flex gap-2 break-inside-avoid relative bg-white">
-                                    <canvas id={`lbl-qr-${i}`} className="w-20 h-20"></canvas>
-                                    <div className="flex-1 overflow-hidden">
-                                        <div className="bg-black text-white text-[8px] font-bold px-1 inline-block mb-1">SATPEL PVP JAMBI</div>
-                                        <p className="text-[10px] font-bold leading-tight uppercase truncate">{l.name}</p>
-                                        <p className="text-[8px] font-mono mt-1">{l.code}</p>
-                                        <div className="absolute bottom-1 right-1 text-[8px] font-bold bg-gray-200 px-1">{roomView.name} - {l.num}</div>
+                        <div className="bg-white p-8 min-h-screen a4-page" id="print-area">
+                            <style>{`
+                                @media print {
+                                    @page { size: A4; margin: 5mm; } 
+                                    .label-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; row-gap: 12px; }
+                                    .label-card { border: 2px solid black; background: white; font-family: "Times New Roman", Times, serif; color: black; page-break-inside: avoid; height: fit-content; }
+                                    .label-card-inner { border: 1px solid black; margin: 2px; padding: 4px; display: flex; flex-direction: column; }
+                                    body { -webkit-print-color-adjust: exact; background: white; }
+                                    .no-print, header, aside, .shadow-card { display: none !important; }
+                                }
+                                .label-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+                                .label-card { border: 2px solid black; background: white; font-family: "Times New Roman", Times, serif; color: black; height: fit-content; }
+                                .label-card-inner { border: 1px solid black; margin: 2px; padding: 4px; display: flex; flex-direction: column; }
+                                @media (max-width: 768px) { .label-grid { grid-template-columns: repeat(1, 1fr); } }
+                            `}</style>
+                            
+                            <div className="label-grid">
+                                {allLabels.map((l, i) => (
+                                    <div key={i} className="label-card">
+                                        <div className="label-card-inner">
+                                            <div className="flex items-center gap-1 border-b-2 border-black pb-1 mb-1">
+                                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Lambang_Kementerian_Ketenagakerjaan_RI.png/600px-Lambang_Kementerian_Ketenagakerjaan_RI.png" alt="Logo" className="h-8 w-8 object-contain"/>
+                                                <div className="text-center flex-1 leading-none">
+                                                    <div className="text-[6px] font-bold uppercase tracking-wider">Barang Milik Negara</div>
+                                                    <div className="text-[7px] font-black uppercase tracking-tight my-0.5">Kementerian Ketenagakerjaan RI</div>
+                                                    <div className="text-[6px] font-bold uppercase">Satpel PVP Jambi</div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex justify-between items-stretch">
+                                                <div className="flex-1 pr-1 space-y-1">
+                                                    <div>
+                                                        <div className="flex justify-between items-end">
+                                                            <span className="block text-[6px] text-gray-600 uppercase font-bold tracking-wider">Kode Barang</span>
+                                                            <span className="block text-[7px] font-black bg-black text-white px-1 rounded-sm">{l.seq}</span>
+                                                        </div>
+                                                        <span className="block text-[9px] font-bold font-mono tracking-tight bg-gray-100 px-1 border border-gray-400 inline-block w-full text-center mt-0.5">
+                                                            {l.code}
+                                                        </span>
+                                                    </div>
+
+                                                    <div>
+                                                        <span className="block text-[6px] text-gray-600 uppercase font-bold tracking-wider">Nama Barang</span>
+                                                        <span className="block text-[8px] font-bold leading-tight line-clamp-2">{l.name}</span>
+                                                    </div>
+
+                                                    <div className="flex gap-1 border-t border-gray-300 pt-0.5 mt-0.5">
+                                                        <div className="flex-1 min-w-0">
+                                                            <span className="block text-[6px] text-gray-600 uppercase font-bold">Merk/Tipe</span>
+                                                            <span className="block text-[7px] leading-tight truncate">{l.brand} {l.model}</span>
+                                                        </div>
+                                                        <div className="shrink-0 text-right">
+                                                            <span className="block text-[6px] text-gray-600 uppercase font-bold">Tahun</span>
+                                                            <span className="block text-[7px] font-bold">{l.year || '-'}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="shrink-0 flex flex-col items-center justify-center border-l-2 border-dotted border-gray-300 pl-1 w-20">
+                                                    <canvas id={`lbl-qr-${i}`} className="w-18 h-18" style={{ width: '60px', height: '60px' }}></canvas>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
                     </div>
                 );
@@ -1187,8 +1494,8 @@
                             </div>
                         </div>
                         
-                        <div className="flex justify-center p-8 bg-white" id="print-area">
-                            <div className="border-4 border-black p-8 text-center max-w-md w-full">
+                        <div className="flex justify-center p-8 bg-white a4-page" id="print-area">
+                            <div className="border-4 border-black p-8 text-center max-w-md w-full h-fit self-center">
                                 <h2 className="text-2xl font-black mb-4 uppercase">KARTU INVENTARIS RUANGAN</h2>
                                 <h3 className="text-xl font-bold mb-8">{roomView.name}</h3>
                                 <div className="flex justify-center mb-8"><canvas id="room-qr-canvas" className="w-64 h-64"></canvas></div>
@@ -1221,6 +1528,13 @@
                         </div>
 
                         <div className="bg-white p-8 min-h-screen a4-page" id="kir-print-area">
+                            <style>{`
+                                @media print {
+                                    @page { size: A4; margin: 10mm; }
+                                     body { -webkit-print-color-adjust: exact; background: white; }
+                                    .no-print, header, aside, .shadow-card { display: none !important; }
+                                }
+                            `}</style>
                             <div className="text-center mb-6 border-b-2 border-black pb-4">
                                 <h2 className="text-xl font-bold uppercase">PEMERINTAH PROVINSI JAMBI</h2>
                                 <h3 className="text-lg font-bold">DINAS PENDIDIKAN</h3>
