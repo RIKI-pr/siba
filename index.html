@@ -139,28 +139,13 @@
         };
 
         // --- CONSTANTS ---
-        const INITIAL_DATA = { 
-            items: [
-                { id: 1, name: "Catok Keramik Genteng", code: "AL-01", brand: "Stylux", model: "SHD-5225", year: "2023", price: 500000, stock: 12, condGood: 10, condBad: 2, status: "Tersedia" },
-                { id: 2, name: "Hair Dryer Pro", code: "HD-99", brand: "Philips", model: "HPS920", year: "2023", price: 1200000, stock: 5, condGood: 5, condBad: 0, status: "Tersedia" },
-                { id: 3, name: "Gunting Sasak", code: "GS-05", brand: "Tony & Guy", model: "TG-55", year: "2022", price: 350000, stock: 0, condGood: 0, condBad: 0, status: "Habis" },
-            ], 
-            rooms: [
-                { id: 101, name: "Gudang Utama", code: "WH-01", pic: "Budi Santoso", items: [{itemId: 1, qty: 2}] },
-                { id: 102, name: "Tata Kecantikan", code: "R-KC", pic: "Siti Aminah", items: [{itemId: 1, qty: 8}, {itemId: 2, qty: 5}] }
-            ], 
-            loans: [], 
-            maintenance: [], 
-            logs: [
-                { id: 1, action: "System Init", desc: "Sistem dimuat dengan data dummy", time: new Date().toLocaleString() }
-            ] 
-        };
+        const INITIAL_DATA = { items: [], rooms: [], loans: [], maintenance: [], logs: [] };
 
         // --- CONTEXT ---
         const AppContext = createContext();
         const AppProvider = ({ children }) => {
             const [data, setData] = useState(INITIAL_DATA);
-            const [scriptUrl, setScriptUrl] = useState(localStorage.getItem('gas_url') || '');
+            const [scriptUrl, setScriptUrl] = useState(localStorage.getItem('gas_url') || 'https://script.google.com/macros/s/AKfycbzV60dHySLv1HbR6GLRo2BckOTI_5O53dgngx0a9NvXLlhYqsc28nyNn7LxBsmWdvkWWw/exec');
             const [loading, setLoading] = useState(false);
             const [isConnected, setIsConnected] = useState(false);
             const [isSyncing, setIsSyncing] = useState(false);
