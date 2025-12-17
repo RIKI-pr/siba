@@ -66,7 +66,7 @@
             .label-grid {
                 display: grid;
                 grid-template-columns: repeat(3, 1fr);
-                gap: 10px; /* Jarak antar label di kertas */
+                gap: 5mm; 
             }
             .label-card {
                 break-inside: avoid;
@@ -82,7 +82,7 @@
         .a4-page {
             width: 210mm;
             min-height: 297mm;
-            padding: 10mm; /* Padding simulasi margin kertas */
+            padding: 10mm;
             margin: 0 auto;
             background: white;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
@@ -179,7 +179,6 @@
 
             const updateData = (key, newData) => setData(prev => ({ ...prev, [key]: newData }));
 
-            // Helper: Stok Global - Dipinjam
             const getAvailableStock = (itemId) => {
                 const item = data.items.find(i => i.id === itemId);
                 if (!item) return 0;
@@ -270,7 +269,7 @@
             );
         };
 
-        // --- UI KIT ---
+        // --- UI COMPONENTS ---
         const Button = ({ children, variant="primary", className, ...props }) => {
             const variants = {
                 primary: "bg-primary text-white hover:bg-indigo-700 shadow-sm shadow-indigo-200",
@@ -314,66 +313,6 @@
             );
         };
 
-        // --- SIDEBAR ---
-        const Sidebar = ({ view, setView, open, setOpen, desktopOpen }) => {
-            const menus = [
-                { id: 'dashboard', label: 'Dashboard', icon: 'Dashboard' },
-                { id: 'inventory', label: 'Data Barang', icon: 'Package' },
-                { id: 'kir', label: 'KIR Ruangan', icon: 'Building' },
-                { id: 'loans', label: 'Peminjaman', icon: 'ArrowLeftRight' },
-                { id: 'maintenance', label: 'Maintenance', icon: 'Wrench' },
-                { id: 'settings', label: 'Pengaturan', icon: 'Settings' }
-            ];
-
-            const { isConnected, isSyncing } = useContext(AppContext);
-
-            return (
-                <>
-                    {/* Mobile Overlay */}
-                    {open && (
-                        <div 
-                            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden transition-opacity"
-                            onClick={() => setOpen(false)}
-                        ></div>
-                    )}
-
-                    <aside className={cn(
-                        "w-64 bg-slate-900 text-white h-screen fixed left-0 top-0 z-50 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out",
-                        open ? "translate-x-0" : "-translate-x-full", // Mobile logic
-                        desktopOpen ? "md:translate-x-0" : "md:-translate-x-full" // Desktop logic
-                    )}>
-                        <div className="h-16 flex items-center px-6 border-b border-slate-800 shrink-0">
-                            <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center mr-3 font-bold text-lg">S</div>
-                            <div>
-                                <h1 className="font-bold text-base leading-tight">SIBA Enterprise</h1>
-                                <p className="text-slate-400 text-[10px]">Satpel PVP Jambi</p>
-                            </div>
-                        </div>
-                        <nav className="p-4 space-y-1 flex-1 overflow-y-auto custom-scroll">
-                            {menus.map(m => (
-                                <button
-                                    key={m.id}
-                                    onClick={() => { setView(m.id); setOpen(false); }}
-                                    className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all duration-200", view === m.id || view.startsWith(m.id) ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/20" : "text-slate-400 hover:bg-slate-800 hover:text-white")}
-                                >
-                                    <Icon name={m.icon} size={20}/> <span>{m.label}</span>
-                                </button>
-                            ))}
-                        </nav>
-                        <div className="p-4 border-t border-slate-800 bg-slate-900 shrink-0">
-                            <div className="flex items-center justify-between text-xs mb-1">
-                                <span className="text-slate-500">Status System</span>
-                                <div className="flex items-center gap-2">
-                                    <span className={cn("w-2 h-2 rounded-full", isSyncing ? "bg-yellow-400 animate-pulse" : isConnected ? "bg-green-500" : "bg-red-500")}></span>
-                                    <span className="text-slate-400">{isSyncing ? "Syncing..." : isConnected ? "Online" : "Offline"}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </aside>
-                </>
-            );
-        };
-
         // --- SUB-COMPONENTS FOR KIR (PRINTING) ---
         const PrintLabelView = ({ room, items, onBack }) => {
             useEffect(() => {
@@ -399,7 +338,12 @@
                         <style>{`
                             @media print {
                                 @page { size: A4; margin: 5mm; } 
-                                .label-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; row-gap: 12px; }
+                                .label-grid { 
+                                    display: grid; 
+                                    grid-template-columns: repeat(3, 1fr); 
+                                    gap: 5px; 
+                                    row-gap: 12px;
+                                }
                                 .label-card { 
                                     border: 2px solid black; 
                                     background: white; 
@@ -418,8 +362,15 @@
                                 body { -webkit-print-color-adjust: exact; background: white; }
                                 .no-print, header, aside, .shadow-card { display: none !important; }
                             }
-                            .label-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
-                            .label-card { border: 2px solid black; background: white; font-family: "Times New Roman", Times, serif; color: black; }
+                            /* Screen Preview Styles */
+                            .label-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+                            .label-card { 
+                                border: 2px solid black; 
+                                background: white; 
+                                font-family: "Times New Roman", Times, serif; 
+                                color: black; 
+                                height: fit-content;
+                            }
                             .label-card-inner { border: 1px solid black; margin: 2px; padding: 4px; display: flex; flex-direction: column; }
                             @media (max-width: 768px) { .label-grid { grid-template-columns: repeat(1, 1fr); } }
                         `}</style>
@@ -428,6 +379,7 @@
                             {items.map((l, i) => (
                                 <div key={i} className="label-card">
                                     <div className="label-card-inner">
+                                        {/* HEADER LABEL */}
                                         <div className="flex items-center gap-1 border-b-2 border-black pb-1 mb-1">
                                             <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Lambang_Kementerian_Ketenagakerjaan_RI.png/600px-Lambang_Kementerian_Ketenagakerjaan_RI.png" alt="Logo" className="h-8 w-8 object-contain"/>
                                             <div className="text-center flex-1 leading-none">
@@ -438,22 +390,27 @@
                                         </div>
 
                                         <div className="flex justify-between items-stretch">
+                                            {/* DATA AREA (KIRI) */}
                                             <div className="flex-1 pr-1 space-y-1">
+                                                {/* Kode Barang */}
                                                 <div>
                                                     <div className="flex justify-between items-end">
                                                         <span className="block text-[6px] text-gray-600 uppercase font-bold tracking-wider">Kode Barang</span>
-                                                        <span className="block text-[7px] font-black bg-black text-white px-1 rounded-sm">{l.num}/{l.total}</span>
+                                                        {/* Indikator Urutan (1/10) */}
+                                                        <span className="block text-[7px] font-black bg-black text-white px-1 rounded-sm">{l.seq}</span>
                                                     </div>
                                                     <span className="block text-[9px] font-bold font-mono tracking-tight bg-gray-100 px-1 border border-gray-400 inline-block w-full text-center mt-0.5">
                                                         {l.code}
                                                     </span>
                                                 </div>
 
+                                                {/* Nama Barang */}
                                                 <div>
                                                     <span className="block text-[6px] text-gray-600 uppercase font-bold tracking-wider">Nama Barang</span>
                                                     <span className="block text-[8px] font-bold leading-tight line-clamp-2">{l.name}</span>
                                                 </div>
 
+                                                {/* Merk & Tahun */}
                                                 <div className="flex gap-1 border-t border-gray-300 pt-0.5 mt-0.5">
                                                     <div className="flex-1 min-w-0">
                                                         <span className="block text-[6px] text-gray-600 uppercase font-bold">Merk/Tipe</span>
@@ -466,6 +423,7 @@
                                                 </div>
                                             </div>
 
+                                            {/* QR CODE AREA (KANAN) */}
                                             <div className="shrink-0 flex flex-col items-center justify-center border-l-2 border-dotted border-gray-300 pl-1 w-20">
                                                 <canvas id={`lbl-qr-${i}`} className="w-18 h-18" style={{ width: '60px', height: '60px' }}></canvas>
                                             </div>
@@ -617,7 +575,6 @@
             );
         };
 
-
         // --- DESKTOP HEADER ---
         const DesktopHeader = ({ toggleSidebar }) => {
             const { isConnected, isSyncing } = useContext(AppContext);
@@ -645,6 +602,66 @@
                 </header>
             )
         }
+
+        // --- SIDEBAR ---
+        const Sidebar = ({ view, setView, open, setOpen, desktopOpen }) => {
+            const menus = [
+                { id: 'dashboard', label: 'Dashboard', icon: 'Dashboard' },
+                { id: 'inventory', label: 'Data Barang', icon: 'Package' },
+                { id: 'kir', label: 'KIR Ruangan', icon: 'Building' },
+                { id: 'loans', label: 'Peminjaman', icon: 'ArrowLeftRight' },
+                { id: 'maintenance', label: 'Maintenance', icon: 'Wrench' },
+                { id: 'settings', label: 'Pengaturan', icon: 'Settings' }
+            ];
+
+            const { isConnected, isSyncing } = useContext(AppContext);
+
+            return (
+                <>
+                    {/* Mobile Overlay */}
+                    {open && (
+                        <div 
+                            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden transition-opacity"
+                            onClick={() => setOpen(false)}
+                        ></div>
+                    )}
+
+                    <aside className={cn(
+                        "w-64 bg-slate-900 text-white h-screen fixed left-0 top-0 z-50 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out",
+                        open ? "translate-x-0" : "-translate-x-full", // Mobile logic
+                        desktopOpen ? "md:translate-x-0" : "md:-translate-x-full" // Desktop logic
+                    )}>
+                        <div className="h-16 flex items-center px-6 border-b border-slate-800 shrink-0">
+                            <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center mr-3 font-bold text-lg">S</div>
+                            <div>
+                                <h1 className="font-bold text-base leading-tight">SIBA Enterprise</h1>
+                                <p className="text-slate-400 text-[10px]">Satpel PVP Jambi</p>
+                            </div>
+                        </div>
+                        <nav className="p-4 space-y-1 flex-1 overflow-y-auto custom-scroll">
+                            {menus.map(m => (
+                                <button
+                                    key={m.id}
+                                    onClick={() => { setView(m.id); setOpen(false); }}
+                                    className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all duration-200", view === m.id || view.startsWith(m.id) ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/20" : "text-slate-400 hover:bg-slate-800 hover:text-white")}
+                                >
+                                    <Icon name={m.icon} size={20}/> <span>{m.label}</span>
+                                </button>
+                            ))}
+                        </nav>
+                        <div className="p-4 border-t border-slate-800 bg-slate-900 shrink-0">
+                            <div className="flex items-center justify-between text-xs mb-1">
+                                <span className="text-slate-500">Status System</span>
+                                <div className="flex items-center gap-2">
+                                    <span className={cn("w-2 h-2 rounded-full", isSyncing ? "bg-yellow-400 animate-pulse" : isConnected ? "bg-green-500" : "bg-red-500")}></span>
+                                    <span className="text-slate-400">{isSyncing ? "Syncing..." : isConnected ? "Online" : "Offline"}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
+                </>
+            );
+        };
 
         // --- SMART TABLE (MULTI-FILTER) ---
         const SmartTable = ({ data = [], columns, onRowClick, actions, filterDefs = [], renderMobileItem }) => {
@@ -715,7 +732,7 @@
                                         <label className="text-[10px] font-bold text-slate-500 uppercase sm:hidden md:block">{def.label}:</label>
                                         <div className="relative">
                                             <select 
-                                                className="appearance-none h-7 w-full sm:w-28 pl-2 pr-6 rounded-lg border border-slate-200 bg-white text-[11px] font-medium text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all cursor-pointer py-1 small-text"
+                                                className="appearance-none h-7 w-full sm:w-28 pl-2 pr-6 rounded-lg border border-slate-200 bg-white text-[10px] font-medium text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all cursor-pointer py-1 small-text"
                                                 value={activeFilters[def.key] || 'all'}
                                                 onChange={e => handleFilterChange(def.key, e.target.value)}
                                             >
@@ -1324,7 +1341,6 @@
             const [selectedItem, setSelectedItem] = useState("");
             const [qtyToAdd, setQtyToAdd] = useState(1);
             
-            // View Modes: 'room-detail', 'qr', 'label', 'list'
             const [subView, setSubView] = useState('room-detail');
 
             const handleAddRoom = () => { 
@@ -1354,12 +1370,10 @@
                 setRoomView(updatedRooms[roomIdx]);
             }
 
-            // Word Export Function
             const exportToWord = () => {
                 const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>KIR</title></head><body>";
                 const footer = "</body></html>";
                 const sourceHTML = header + document.getElementById("kir-print-area").innerHTML + footer;
-                
                 const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
                 const fileDownload = document.createElement("a");
                 document.body.appendChild(fileDownload);
@@ -1369,8 +1383,28 @@
                 document.body.removeChild(fileDownload);
             };
 
-            // SUB-COMPONENTS for Printing
             const LabelView = () => {
+                // Pre-calculate flattened labels WITH sequence numbers
+                const allLabels = useMemo(() => {
+                    let labels = [];
+                    if(roomView && roomView.items) {
+                        roomView.items.forEach(ri => {
+                            const item = data.items.find(i => i.id === ri.itemId);
+                            if(item) {
+                                for(let i=1; i<=ri.qty; i++) {
+                                    labels.push({ 
+                                        ...item, 
+                                        num: i, 
+                                        total: ri.qty, 
+                                        seq: `${i}/${ri.qty}` 
+                                    });
+                                }
+                            }
+                        });
+                    }
+                    return labels;
+                }, [roomView, data.items]);
+
                 useEffect(() => {
                     setTimeout(() => {
                         allLabels.forEach((l, idx) => {
@@ -1378,20 +1412,7 @@
                             if(el) new QRious({ element: el, value: `${window.location.origin}${window.location.pathname}#item-${l.id}`, size: 150 });
                         });
                     }, 500);
-                }, []);
-
-                let allLabels = [];
-                if(roomView && roomView.items) {
-                    roomView.items.forEach(ri => {
-                        const item = data.items.find(i => i.id === ri.itemId);
-                        if(item) {
-                            for(let i=1; i<=ri.qty; i++) {
-                                // Tambahkan properti seq dan total untuk 1/N
-                                allLabels.push({ ...item, num: i, total: ri.qty, seq: `${i}/${ri.qty}` });
-                            }
-                        }
-                    });
-                }
+                }, [allLabels]);
 
                 return (
                     <div className="space-y-4 animate-enter">
@@ -1528,13 +1549,6 @@
                         </div>
 
                         <div className="bg-white p-8 min-h-screen a4-page" id="kir-print-area">
-                            <style>{`
-                                @media print {
-                                    @page { size: A4; margin: 10mm; }
-                                     body { -webkit-print-color-adjust: exact; background: white; }
-                                    .no-print, header, aside, .shadow-card { display: none !important; }
-                                }
-                            `}</style>
                             <div className="text-center mb-6 border-b-2 border-black pb-4">
                                 <h2 className="text-xl font-bold uppercase">PEMERINTAH PROVINSI JAMBI</h2>
                                 <h3 className="text-lg font-bold">DINAS PENDIDIKAN</h3>
