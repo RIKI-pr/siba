@@ -372,7 +372,7 @@
                                 <Icon name="Search" className="absolute left-3 top-3 text-slate-400" size={18}/>
                                 <Input 
                                     placeholder="Cari data..." 
-                                    className="pl-10 h-11 bg-slate-50 border-slate-200 focus:bg-white focus:border-primary w-full shadow-sm" 
+                                    className="pl-10 h-10 bg-slate-50 border-slate-200 focus:bg-white focus:border-primary w-full shadow-sm text-sm" 
                                     value={search} 
                                     onChange={e => { setSearch(e.target.value); setPage(1); }} 
                                 />
@@ -424,14 +424,14 @@
                         {/* Desktop Table View (Hidden on small screens) */}
                         <div className={cn("overflow-x-auto custom-scroll hidden", renderMobileItem ? "md:block" : "block")}>
                             <table className="w-full text-left text-sm min-w-full">
-                                <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 font-bold uppercase text-[10px] tracking-wider whitespace-nowrap">
+                                <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">
                                     <tr>{columns.map((col, idx) => <th key={idx} className={cn("px-4 py-3 md:px-6 md:py-4", col.className)}>{col.header}</th>)}</tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 bg-white">
                                     {paginatedData.map((row, idx) => (
                                         <tr key={idx} onClick={() => onRowClick && onRowClick(row)} className={cn("hover:bg-slate-50 transition-colors group", onRowClick && "cursor-pointer")}>
                                             {columns.map((col, cIdx) => (
-                                                <td key={cIdx} className={cn("px-4 py-3 md:px-6 md:py-4 text-sm align-top whitespace-nowrap", col.className)}>
+                                                <td key={cIdx} className={cn("px-4 py-3 md:px-6 md:py-3.5 text-sm align-top whitespace-nowrap", col.className)}>
                                                     {col.render ? col.render(row) : (typeof col.accessor === 'function' ? col.accessor(row) : row[col.accessor])}
                                                 </td>
                                             ))}
@@ -595,22 +595,15 @@
                         const data = new Uint8Array(e.target.result);
                         const workbook = XLSX.read(data, {type: 'array'});
                         const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                        
-                        // Mapping sesuai format baru: Nama Barang, Merk, Tipe/Model (Uraian), Kategori, Tahun, Jumlah, Satuan, Nominal (Rp)
-                        setImportData(jsonData.map((row, index) => ({
-                            name: row['Nama Barang'] || row['Nama'] || '',
-                            brand: row['Merk'] || row['Brand'] || '',
-                            model: row['Tipe/Model (Uraian)'] || row['Tipe'] || row['Model'] || '',
-                            category: row['Kategori'] || '',
-                            year: row['Tahun'] || '',
-                            qty: parseInt(row['Jumlah'] || 0),
-                            unit: row['Satuan'] || 'Unit',
-                            price: parseInt(row['Nominal (Rp)'] || row['Nominal'] || row['Harga'] || 0),
-                            // Auto-generate code sementara jika tidak ada di excel, format BRG-{timestamp}-{index}
-                            code: `BRG-${Math.floor(Date.now()/1000)}-${index}` 
+                        setImportData(jsonData.map(row => ({
+                            name: row['Nama Barang'] || row['nama'] || row['Name'],
+                            code: row['Kode Barang'] || row['kode'] || row['Code'],
+                            model: row['Model'] || row['model'],
+                            year: row['Tahun'] || row['year'],
+                            price: row['Harga'] || row['price'],
+                            qty: row['Jumlah'] || row['qty']
                         })));
                     } catch (err) {
-                        console.error(err);
                         alert("Gagal membaca file excel. Pastikan format benar.");
                     }
                 };
@@ -620,60 +613,34 @@
             const handleImportSave = () => {
                 if (importData.length === 0) return alert("Tidak ada data!");
                 const newItems = importData.map(item => ({
-                    ...item, 
-                    id: Date.now() + Math.floor(Math.random() * 10000), 
-                    stock: item.qty, 
-                    condGood: item.qty, // Asumsi barang baru kondisi baik semua
-                    condBad: 0, 
-                    status: "Tersedia", 
-                    locs: []
+                    ...item, id: Date.now() + Math.floor(Math.random() * 10000), stock: parseInt(item.qty || 0), condGood: parseInt(item.qty || 0), condBad: 0, status: "Tersedia", locs: []
                 }));
                 const updatedItems = [...newItems, ...data.items];
                 updateData('items', updatedItems);
                 syncData('SYNC_ALL', { ...data, items: updatedItems });
                 setShowImportModal(false);
                 setImportData([]);
-                alert(`Berhasil mengimpor ${newItems.length} barang.`);
             };
 
             const downloadSampleTemplate = () => {
-                // Update template sesuai format baru
-                const ws = XLSX.utils.json_to_sheet([
-                    { 
-                        "Nama Barang": "Laptop Kantor", 
-                        "Merk": "Asus", 
-                        "Tipe/Model (Uraian)": "Vivobook 14", 
-                        "Kategori": "Elektronik",
-                        "Tahun": "2024", 
-                        "Jumlah": 10,
-                        "Satuan": "Unit",
-                        "Nominal (Rp)": 7500000
-                    },
-                    { 
-                        "Nama Barang": "Meja Kerja", 
-                        "Merk": "Informa", 
-                        "Tipe/Model (Uraian)": "Kayu Jati 120cm", 
-                        "Kategori": "Mebel",
-                        "Tahun": "2023", 
-                        "Jumlah": 5,
-                        "Satuan": "Buah",
-                        "Nominal (Rp)": 1500000
-                    }
-                ]);
+                const ws = XLSX.utils.json_to_sheet([{ "Nama Barang": "Contoh Barang", "Kode Barang": "B001", "Model": "Tipe X", "Tahun": "2024", "Harga": "50000", "Jumlah": "10" }]);
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, "Template");
-                XLSX.writeFile(wb, "template_barang_v2.xlsx");
+                XLSX.writeFile(wb, "template_barang.xlsx");
             };
 
             // Enhanced Columns Layout for Desktop
             const columns = [
-                { header: "No", render: (r) => data.items.indexOf(r) + 1, className: "w-10 text-center align-top" },
+                { header: "No", render: (r) => data.items.indexOf(r) + 1, className: "w-10 text-center align-top text-slate-500" },
                 { 
                     header: "Informasi Barang", 
                     render: r => (
                         <div className="whitespace-nowrap">
-                            <p className="font-bold text-slate-900">{r.name}</p>
-                            <p className="text-xs text-slate-500 font-mono mt-0.5">{r.code}</p>
+                            <p className="font-semibold text-slate-800 text-[13px]">{r.name}</p>
+                            {/* Kode Barang: Padding Sangat Kecil, Font Mono Code */}
+                            <span className="inline-block mt-0.5 px-1 py-px rounded text-[10px] font-mono text-slate-600 bg-slate-100 border border-slate-200 leading-tight">
+                                {r.code}
+                            </span>
                         </div>
                     ), 
                     className: "min-w-[180px] align-top" 
@@ -682,8 +649,8 @@
                     header: "Merk / Model", 
                     render: r => (
                         <div className="whitespace-nowrap">
-                            <p className="font-medium text-slate-700">{r.brand || '-'}</p>
-                            <p className="text-xs text-slate-500 mt-0.5">{r.model || '-'}</p>
+                            <p className="font-medium text-slate-700 text-[13px]">{r.brand || '-'}</p>
+                            <p className="text-[11px] text-slate-500 mt-0.5">{r.model || '-'}</p>
                         </div>
                     ),
                     className: "min-w-[120px] align-top"
@@ -692,7 +659,7 @@
                     header: "Total Stok", 
                     render: r => (
                         <div className="text-center">
-                            <span className="font-bold text-lg text-slate-800">{r.stock}</span>
+                            <span className="font-semibold text-slate-700">{r.stock}</span>
                         </div>
                     ), 
                     className: "text-center w-20 align-top" 
@@ -701,7 +668,7 @@
                     header: "Tahun", 
                     render: r => (
                         <div className="text-center">
-                            <span className="text-sm font-medium text-slate-600">{r.year || '-'}</span>
+                            <span className="text-[13px] text-slate-600">{r.year || '-'}</span>
                         </div>
                     ), 
                     className: "text-center w-16 align-top" 
@@ -713,21 +680,21 @@
                         return locs.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
                                 {locs.map((l, i) => (
-                                    <span key={i} className="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded border border-indigo-100 whitespace-nowrap">
+                                    <span key={i} className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 whitespace-nowrap font-medium">
                                         {l.name} <span className="font-bold">({l.qty})</span>
                                     </span>
                                 ))}
                             </div>
-                        ) : <span className="text-xs text-slate-400 italic">-</span>
+                        ) : <span className="text-[11px] text-slate-400 italic">-</span>
                     },
                     className: "min-w-[160px] align-top"
                 },
                 { 
                     header: "Kondisi", 
                     render: r => (
-                        <div className="text-xs font-medium whitespace-nowrap flex flex-col gap-1">
-                            <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 w-fit">{r.condGood || 0} Baik</span>
-                            <span className="text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100 w-fit">{r.condBad || 0} Rusak</span>
+                        <div className="text-[11px] font-medium whitespace-nowrap flex flex-col gap-1">
+                            <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 w-fit">{r.condGood || 0} Baik</span>
+                            <span className="text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-100 w-fit">{r.condBad || 0} Rusak</span>
                         </div>
                     ),
                     className: "align-top"
@@ -775,40 +742,43 @@
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 active:scale-[0.99] transition-transform">
                         <div className="flex justify-between items-start mb-3">
                             <div>
-                                <h3 className="font-bold text-slate-900 text-lg leading-tight">{r.name}</h3>
-                                <p className="text-xs text-slate-500 font-mono mt-1 bg-slate-100 px-1.5 py-0.5 rounded w-fit">{r.code}</p>
+                                <h3 className="font-semibold text-slate-900 text-base leading-tight">{r.name}</h3>
+                                {/* Kode Barang Mobile: Padding Kecil & Font Mono */}
+                                <span className="inline-block mt-0.5 px-1 py-px rounded text-[10px] font-mono text-slate-600 bg-slate-100 border border-slate-200 leading-tight">
+                                    {r.code}
+                                </span>
                             </div>
                             <div className="flex flex-col items-end gap-1">
                                 <Badge color={r.stock > 0 ? 'green' : 'red'}>{r.stock > 0 ? 'Tersedia' : 'Habis'}</Badge>
-                                <span className="text-xs font-bold text-slate-400">Stok: {r.stock}</span>
+                                <span className="text-[11px] font-medium text-slate-500">Stok: <span className="font-bold text-slate-800">{r.stock}</span></span>
                             </div>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-3 text-sm mb-4">
                             <div className="bg-slate-50 p-2 rounded-lg">
-                                <span className="text-[10px] text-slate-400 uppercase font-bold block mb-1">Merk / Model</span>
-                                <span className="text-slate-700 font-medium block truncate">{r.brand || '-'}/{r.model || '-'}</span>
+                                <span className="text-[10px] text-slate-500 uppercase font-semibold block mb-1">Merk / Model</span>
+                                <span className="text-slate-700 font-medium block truncate text-[13px]">{r.brand || '-'}/{r.model || '-'}</span>
                             </div>
                             <div className="bg-slate-50 p-2 rounded-lg">
-                                <span className="text-[10px] text-slate-400 uppercase font-bold block mb-1">Kondisi</span>
-                                <div className="text-xs flex flex-col">
-                                    <span className="text-emerald-600 font-bold">{r.condGood} Baik</span>
-                                    <span className="text-red-500 font-bold">{r.condBad} Rusak</span>
+                                <span className="text-[10px] text-slate-500 uppercase font-semibold block mb-1">Kondisi</span>
+                                <div className="text-[11px] flex flex-col gap-0.5">
+                                    <span className="text-emerald-700 font-medium">{r.condGood} Baik</span>
+                                    <span className="text-red-700 font-medium">{r.condBad} Rusak</span>
                                 </div>
                             </div>
                         </div>
 
                         <div className="mb-4">
-                            <span className="text-[10px] text-slate-400 uppercase font-bold block mb-1">Lokasi Penyimpanan</span>
+                            <span className="text-[10px] text-slate-500 uppercase font-semibold block mb-1">Lokasi Penyimpanan</span>
                             {locs.length > 0 ? (
                                 <div className="flex flex-wrap gap-1">
                                     {locs.map((l, i) => (
-                                        <span key={i} className="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded border border-indigo-100">
+                                        <span key={i} className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-1 rounded border border-indigo-100 font-medium">
                                             {l.name} <span className="font-bold">({l.qty})</span>
                                         </span>
                                     ))}
                                 </div>
-                            ) : <span className="text-xs text-slate-400 italic">Belum ada lokasi</span>}
+                            ) : <span className="text-[11px] text-slate-400 italic">Belum ada lokasi</span>}
                         </div>
 
                         <div className="flex gap-2 border-t pt-3">
