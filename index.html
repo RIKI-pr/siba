@@ -38,19 +38,22 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- QR Code library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <!-- html2canvas & jsPDF for downloading images/PDF -->
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
-        body { background-color: #f8fafc; color: #0f172a; -webkit-font-smoothing: antialiased; }
+        body { background-color: #f8fafc; color: #0f172a; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
         .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        .animate-enter { animation: fadeIn 0.3s ease-out forwards; }
         
         /* Print Styling - A4 Configuration */
         @media print { 
-            @page { size: A4; margin: 10mm; } 
-            body { background: white; font-size: 11px; -webkit-print-color-adjust: exact; margin: 0; padding: 0; }
+            @page { size: A4; margin: 3mm; } /* Margin sangat kecil untuk muat banyak */
+            body { background: white; font-size: 10px; -webkit-print-color-adjust: exact; margin: 0; padding: 0; overflow: visible; }
             
             /* Hide UI Elements */
             .no-print, aside, header, .pagination-controls, button, .modal-close-btn, .screen-only-bg { display: none !important; }
@@ -65,16 +68,20 @@
             /* Label Grid Print Fix */
             .label-grid {
                 display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 5mm; 
+                grid-template-columns: repeat(4, 1fr) !important; /* Force 4 columns on print */
+                gap: 2mm !important; 
+                row-gap: 2mm !important;
             }
             .label-card {
                 break-inside: avoid;
                 page-break-inside: avoid;
+                border: 2px solid black !important;
             }
         }
         
         .print-only { display: none; }
+        @media print { .print-only { display: block; } }
+
         input, select, textarea { font-size: 16px !important; } /* Prevent iOS zoom */
         select.small-text { font-size: 11px !important; }
 
@@ -82,7 +89,7 @@
         .a4-page {
             width: 210mm;
             min-height: 297mm;
-            padding: 10mm;
+            padding: 5mm; 
             margin: 0 auto;
             background: white;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
@@ -90,7 +97,7 @@
         }
         /* Mobile adjustment for A4 preview */
         @media (max-width: 768px) {
-            .a4-page { width: 100%; padding: 5mm; min-height: auto; box-shadow: none; border: 1px solid #eee; }
+            .a4-page { width: 100%; padding: 5mm; min-height: auto; box-shadow: none; border: 1px solid #eee; overflow-x: auto; }
             .label-grid { grid-template-columns: 1fr !important; } 
         }
     </style>
@@ -105,6 +112,8 @@
         const cn = (...classes) => classes.filter(Boolean).join(" ");
         const formatCurrency = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
         const formatDate = (dateString) => new Date(dateString).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+        // Menggunakan link Wikimedia yang stabil karena link sebelumnya error
+        const LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Lambang_Kementerian_Ketenagakerjaan_RI.png/600px-Lambang_Kementerian_Ketenagakerjaan_RI.png";
         
         // --- ICONS ---
         const Icon = ({ name, size = 18, className = "" }) => {
@@ -166,12 +175,19 @@
 
         // --- CONSTANTS ---
         const INITIAL_DATA = { items: [], rooms: [], loans: [], maintenance: [], logs: [] };
+        const INITIAL_SETTINGS = {
+            adminName: "Administrator BMN",
+            adminNip: "19xxxxxx xxxxx xxxx",
+            headName: "Kepala Satpel",
+            headNip: "19xxxxxx xxxxx xxxx"
+        };
         const UNIT_OPTIONS = ["Unit", "Buah", "Pcs", "Set", "Lembar", "Batang", "Roll", "Meter", "Pack", "Box", "Kg", "Liter", "Pasang"];
 
         // --- CONTEXT ---
         const AppContext = createContext();
         const AppProvider = ({ children }) => {
             const [data, setData] = useState(INITIAL_DATA);
+            const [appSettings, setAppSettings] = useState(INITIAL_SETTINGS);
             const [scriptUrl, setScriptUrl] = useState(localStorage.getItem('gas_url') || 'https://script.google.com/macros/s/AKfycbzV60dHySLv1HbR6GLRo2BckOTI_5O53dgngx0a9NvXLlhYqsc28nyNn7LxBsmWdvkWWw/exec');
             const [loading, setLoading] = useState(false);
             const [isConnected, setIsConnected] = useState(false);
@@ -228,6 +244,9 @@
                             logs: cloudData.logs || [],
                             maintenance: cloudData.maintenance || []
                         }));
+                        if(cloudData.settings) {
+                            setAppSettings(cloudData.settings);
+                        }
                         setIsConnected(true);
                     }
                 } catch (e) {
@@ -242,12 +261,13 @@
                 if (!scriptUrl) return alert("URL Script belum disetting!");
                 setIsSyncing(true);
                 const payload = overrideData || data;
+                
                 try {
                     await fetch(scriptUrl, {
                         method: 'POST',
                         mode: 'no-cors',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: type, payload: payload })
+                        body: JSON.stringify({ action: type, payload: payload, settings: appSettings })
                     });
                 } catch (e) {
                     console.error("Sync Error:", e);
@@ -262,7 +282,8 @@
             return (
                 <AppContext.Provider value={{ 
                     data, updateData, getAvailableStock, addLog, getItemLocations, returnLoan, 
-                    scriptUrl, setScriptUrl, loading, syncData, fetchData, isConnected, isSyncing 
+                    scriptUrl, setScriptUrl, loading, syncData, fetchData, isConnected, isSyncing,
+                    appSettings, setAppSettings
                 }}>
                     {children}
                 </AppContext.Provider>
@@ -278,7 +299,7 @@
                 ghost: "text-slate-500 hover:bg-slate-100",
                 outline: "border-2 border-slate-200 text-slate-600 hover:border-primary hover:text-primary"
             };
-            return <button className={cn("px-4 py-2.5 rounded-md text-sm font-semibold transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed no-print", variants[variant], className)} {...props}>{children}</button>;
+            return <button className={cn("px-4 py-2.5 rounded-md text-sm font-semibold transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed no-print touch-manipulation", variants[variant], className)} {...props}>{children}</button>;
         };
 
         const Card = ({ children, className, ...props }) => (
@@ -315,6 +336,9 @@
 
         // --- SUB-COMPONENTS FOR KIR (PRINTING) ---
         const PrintLabelView = ({ room, items, onBack }) => {
+            const { appSettings } = useContext(AppContext);
+            
+            // Generate QR Codes
             useEffect(() => {
                 setTimeout(() => {
                     items.forEach((item, idx) => {
@@ -324,94 +348,291 @@
                 }, 500);
             }, [items]);
 
+            // --- FUNGSI EXPORT KE WORD YANG DIPERBAIKI ---
+            const exportLabelsToWord = () => {
+                // 1. Ambil gambar QR Code menjadi Data URL
+                const itemsWithQr = items.map((item, i) => {
+                    const canvas = document.getElementById(`lbl-qr-${i}`);
+                    const qrData = canvas ? canvas.toDataURL('image/png', 1.0) : ''; 
+                    return { ...item, qrData };
+                });
+
+                // Header XML khusus untuk memaksa margin Word
+                const wordHeader = `
+                    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                    <head>
+                        <meta charset='utf-8'>
+                        <title>Labels</title>
+                        <!--[if gte mso 9]>
+                        <xml>
+                            <w:WordDocument>
+                                <w:View>Print</w:View>
+                                <w:Zoom>100</w:Zoom>
+                                <w:DoNotOptimizeForBrowser/>
+                            </w:WordDocument>
+                        </xml>
+                        <![endif]-->
+                        <style>
+                            @page {
+                                mso-page-orientation: portrait;
+                                size: 21cm 29.7cm;
+                                margin: 0.3cm 0.3cm 0.3cm 0.3cm;
+                            }
+                            @page Section1 {
+                                size: 21cm 29.7cm;
+                                margin: 0.3cm 0.3cm 0.3cm 0.3cm;
+                                mso-header-margin: 0cm;
+                                mso-footer-margin: 0cm;
+                                mso-paper-source: 0;
+                            }
+                            div.Section1 { page: Section1; }
+                            
+                            body {
+                                font-family: 'Arial', sans-serif;
+                                margin: 0; padding: 0;
+                            }
+                            table { border-collapse: collapse; border-spacing: 0; mso-table-lspace:0pt; mso-table-rspace:0pt; }
+                            td { padding: 0; vertical-align: top; }
+                            .label-text-small { font-size: 5pt; font-weight: bold; color: #000; text-transform: uppercase; }
+                            .label-text-content { font-size: 7pt; font-weight: bold; color: #000; }
+                        </style>
+                    </head>
+                    <body>
+                    <div class="Section1">
+                `;
+                
+                const wordFooter = `</div></body></html>`;
+                
+                // Tabel Utama
+                let html = '<table style="width: 100%; table-layout: fixed; border: none;">';
+                const columns = 4; 
+                
+                for (let i = 0; i < itemsWithQr.length; i++) {
+                    if (i % columns === 0) html += '<tr>';
+                    
+                    const item = itemsWithQr[i];
+                    
+                    // Struktur Label untuk Word - MENGGUNAKAN TABEL UNTUK SETIAP BARIS TEXT
+                    html += `
+                        <td style="width: 25%; padding: 0.05cm;">
+                            <!-- Border Luar -->
+                            <table style="width: 100%; height: 3.8cm; border: 2px solid #000000; background: #ffffff;">
+                                <!-- Header -->
+                                <tr style="height: 0.9cm;">
+                                    <td style="border-bottom: 2px solid #000000; padding: 2px; vertical-align: middle;">
+                                        <table style="width: 100%;">
+                                            <tr>
+                                                <td style="width: 0.9cm; vertical-align: middle; text-align: center;">
+                                                    <img src="${LOGO_URL}" width="32" height="32" />
+                                                </td>
+                                                <td style="text-align: center; vertical-align: middle;">
+                                                    <span style="font-family: Arial, sans-serif; font-size: 6pt; font-weight: 900; text-transform: uppercase; display: block; line-height: 1;">BMN KEMENTERIAN<br>KETENAGAKERJAAN RI</span>
+                                                    <span style="font-family: Arial, sans-serif; font-size: 5pt; font-weight: bold; text-transform: uppercase; display: block; line-height: 1; margin-top: 2px;">SATPEL PVP JAMBI</span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <!-- Isi -->
+                                <tr>
+                                    <td style="padding: 3px; vertical-align: top;">
+                                        <table style="width: 100%;">
+                                            <tr>
+                                                <td style="vertical-align: top;">
+                                                    <!-- KODE BARANG & SEQ -->
+                                                    <table style="width: 100%; margin-bottom: 2px;">
+                                                        <tr>
+                                                            <td style="width: 70%; vertical-align: bottom;"><span class="label-text-small">KODE BARANG</span></td>
+                                                            <td style="width: 30%; text-align: right; vertical-align: bottom;">
+                                                                <span style="background-color: #000; color: #fff; font-size: 6pt; font-weight: bold; padding: 0 2px;">${item.seq}</span>
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td colspan="2" style="border: 1px solid #999; background-color: #f0f0f0; text-align: center; font-family: monospace; font-size: 8pt; font-weight: bold; padding: 2px 0;">
+                                                                ${item.code}
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+
+                                                    <!-- NAMA BARANG -->
+                                                    <table style="width: 100%; margin-bottom: 2px;">
+                                                        <tr><td><span class="label-text-small">NAMA BARANG</span></td></tr>
+                                                        <tr style="height: 0.9cm;">
+                                                            <td style="vertical-align: top;">
+                                                                <span class="label-text-content" style="line-height: 1.1;">${item.name}</span>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+
+                                                    <!-- MERK & TAHUN -->
+                                                    <table style="width: 100%; border-top: 1px solid #ccc; padding-top: 2px;">
+                                                        <tr>
+                                                            <td style="width: 70%; vertical-align: top;">
+                                                                <span class="label-text-small" style="display:block;">MERK/TIPE</span>
+                                                                <span style="font-size: 6pt; display:block;">${item.brand} ${item.model}</span>
+                                                            </td>
+                                                            <td style="width: 30%; text-align: right; vertical-align: top;">
+                                                                <span class="label-text-small" style="display:block;">THN</span>
+                                                                <span style="font-size: 7pt; font-weight: bold; display:block;">${item.year || '-'}</span>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                                
+                                                <!-- QR CODE -->
+                                                <td style="width: 1.4cm; vertical-align: middle; text-align: center; border-left: 1px dotted #000; padding-left: 4px;">
+                                                    <img src="${item.qrData}" width="50" height="50" style="display: block;" />
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    `;
+                    
+                    if (i % columns === columns - 1) html += '</tr>';
+                }
+                
+                if (itemsWithQr.length % columns !== 0) {
+                    const remaining = columns - (itemsWithQr.length % columns);
+                    for(let j=0; j<remaining; j++) { html += '<td style="width: 25%;"></td>'; }
+                    html += '</tr>';
+                }
+                html += '</table>';
+
+                const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(wordHeader + html + wordFooter);
+                const fileDownload = document.createElement("a");
+                document.body.appendChild(fileDownload);
+                fileDownload.href = source;
+                fileDownload.download = `Labels_BMN.doc`;
+                fileDownload.click();
+                document.body.removeChild(fileDownload);
+            };
+
+            // --- FUNGSI DOWNLOAD PDF YANG DIPERBAIKI ---
+            const downloadPDF = async () => {
+                const element = document.getElementById("print-area");
+                if(!element) return;
+                
+                // Tambahkan kelas khusus saat capture agar layout stabil
+                element.classList.add('pdf-capture-mode');
+
+                try {
+                    const canvas = await html2canvas(element, { 
+                        scale: 3, // Kualitas tinggi
+                        useCORS: true, // WAJIB untuk logo eksternal
+                        allowTaint: true,
+                        backgroundColor: '#ffffff',
+                        windowWidth: 1200 // Paksa lebar window agar teks tidak turun/responsive
+                    });
+                    
+                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    
+                    const imgWidth = 210; 
+                    const pageHeight = 297; 
+                    const imgHeight = canvas.height * imgWidth / canvas.width;
+                    let heightLeft = imgHeight;
+                    let position = 0;
+
+                    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+
+                    while (heightLeft >= 0) {
+                        position = heightLeft - imgHeight;
+                        pdf.addPage();
+                        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+                        heightLeft -= pageHeight;
+                    }
+                    pdf.save(`Labels_BMN.pdf`);
+                } catch(e) {
+                    console.error("PDF Gen Error:", e);
+                    alert("Gagal membuat PDF. Cek koneksi internet untuk memuat logo.");
+                } finally {
+                    element.classList.remove('pdf-capture-mode');
+                }
+            };
+
             return (
                 <div className="space-y-4 animate-enter">
-                     <div className="flex justify-between items-center no-print bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                      <div className="flex justify-between items-center no-print bg-white p-4 rounded-lg shadow-sm border border-slate-200">
                         <h2 className="font-bold text-lg">Cetak Label BMN ({items.length})</h2>
                         <div className="flex gap-2">
                             <Button variant="outline" onClick={onBack}>Kembali</Button>
+                            <Button variant="outline" onClick={downloadPDF}><Icon name="Download" size={16}/> Download PDF</Button>
+                            <Button variant="outline" onClick={exportLabelsToWord}><Icon name="Download" size={16}/> Download Word</Button>
                             <Button onClick={()=>window.print()}>Print</Button>
                         </div>
                     </div>
                     
-                    <div className="bg-white p-8 min-h-screen a4-page" id="print-area">
+                    <div className="bg-white p-2 min-h-screen a4-page" id="print-area">
                         <style>{`
-                            @media print {
-                                @page { size: A4; margin: 5mm; } 
-                                .label-grid { 
-                                    display: grid; 
-                                    grid-template-columns: repeat(3, 1fr); 
-                                    gap: 5px; 
-                                    row-gap: 12px;
-                                }
-                                .label-card { 
-                                    border: 2px solid black; 
-                                    background: white; 
-                                    font-family: "Times New Roman", Times, serif; 
-                                    color: black; 
-                                    page-break-inside: avoid;
-                                    height: fit-content;
-                                }
-                                .label-card-inner {
-                                    border: 1px solid black;
-                                    margin: 2px;
-                                    padding: 4px;
-                                    display: flex;
-                                    flex-direction: column;
-                                }
-                                body { -webkit-print-color-adjust: exact; background: white; }
-                                .no-print, header, aside, .shadow-card { display: none !important; }
+                            .label-grid { 
+                                display: grid; 
+                                grid-template-columns: repeat(4, 1fr); 
+                                gap: 2mm; 
+                                row-gap: 3mm;
                             }
-                            /* Screen Preview Styles */
-                            .label-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
                             .label-card { 
                                 border: 2px solid black; 
                                 background: white; 
                                 font-family: "Times New Roman", Times, serif; 
                                 color: black; 
-                                height: fit-content;
+                                height: fit-content; 
+                                break-inside: avoid; 
+                                page-break-inside: avoid;
                             }
-                            .label-card-inner { border: 1px solid black; margin: 2px; padding: 4px; display: flex; flex-direction: column; }
-                            @media (max-width: 768px) { .label-grid { grid-template-columns: repeat(1, 1fr); } }
+                            .label-card-inner { padding: 3px; display: flex; flex-direction: column; }
+                            
+                            /* Mode Capture PDF: Paksa styling agar teks tidak turun */
+                            .pdf-capture-mode .label-card-inner {
+                                transform: scale(1); /* Reset zoom browser */
+                            }
+                            .pdf-capture-mode .header-text-label {
+                                line-height: 1.1 !important;
+                                margin: 0 !important;
+                                padding: 0 !important;
+                                white-space: nowrap;
+                            }
+                            
+                            @media print {
+                                @page { size: A4; margin: 3mm; }
+                                .label-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 2mm !important; }
+                                .no-print { display: none !important; }
+                                .label-card { border: 2px solid black !important; }
+                            }
+                            @media (max-width: 768px) { .label-grid { grid-template-columns: repeat(2, 1fr); } } 
                         `}</style>
-                        
                         <div className="label-grid">
                             {items.map((l, i) => (
                                 <div key={i} className="label-card">
                                     <div className="label-card-inner">
-                                        {/* HEADER LABEL */}
                                         <div className="flex items-center gap-1 border-b-2 border-black pb-1 mb-1">
-                                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Lambang_Kementerian_Ketenagakerjaan_RI.png/600px-Lambang_Kementerian_Ketenagakerjaan_RI.png" alt="Logo" className="h-8 w-8 object-contain"/>
-                                            <div className="text-center flex-1 leading-none">
-                                                <div className="text-[6px] font-bold uppercase tracking-wider">Barang Milik Negara</div>
-                                                <div className="text-[7px] font-black uppercase tracking-tight my-0.5">Kementerian Ketenagakerjaan RI</div>
-                                                <div className="text-[6px] font-bold uppercase">Satpel PVP Jambi</div>
+                                            {/* crossOrigin="anonymous" PENTING untuk PDF */}
+                                            <img src={LOGO_URL} alt="Logo" className="h-7 w-7 object-contain" crossOrigin="anonymous"/>
+                                            <div className="text-center flex-1 leading-none header-text-label">
+                                                <div className="text-[6px] font-black uppercase tracking-tight my-0.5 leading-none">BMN KEMENTERIAN<br/>KETENAGAKERJAAN RI</div>
+                                                <div className="text-[6px] font-bold uppercase mt-0.5 leading-none">SATPEL PVP JAMBI</div>
                                             </div>
                                         </div>
-
                                         <div className="flex justify-between items-stretch">
-                                            {/* DATA AREA (KIRI) */}
                                             <div className="flex-1 pr-1 space-y-1">
-                                                {/* Kode Barang */}
                                                 <div>
                                                     <div className="flex justify-between items-end">
                                                         <span className="block text-[6px] text-gray-600 uppercase font-bold tracking-wider">Kode Barang</span>
-                                                        {/* Indikator Urutan (1/10) */}
                                                         <span className="block text-[7px] font-black bg-black text-white px-1 rounded-sm">{l.seq}</span>
                                                     </div>
-                                                    <span className="block text-[9px] font-bold font-mono tracking-tight bg-gray-100 px-1 border border-gray-400 inline-block w-full text-center mt-0.5">
+                                                    <span className="block text-[8px] font-bold font-mono tracking-tight bg-gray-100 px-1 border border-gray-400 inline-block w-full text-center mt-0.5">
                                                         {l.code}
                                                     </span>
                                                 </div>
-
-                                                {/* Nama Barang */}
                                                 <div>
                                                     <span className="block text-[6px] text-gray-600 uppercase font-bold tracking-wider">Nama Barang</span>
-                                                    <span className="block text-[8px] font-bold leading-tight line-clamp-2">{l.name}</span>
+                                                    <span className="block text-[8px] font-bold leading-tight line-clamp-2 h-6 overflow-hidden">{l.name}</span>
                                                 </div>
-
-                                                {/* Merk & Tahun */}
-                                                <div className="flex gap-1 border-t border-gray-300 pt-0.5 mt-0.5">
+                                                <div className="flex gap-1 border-t border-gray-300 pt-1 mt-1">
                                                     <div className="flex-1 min-w-0">
                                                         <span className="block text-[6px] text-gray-600 uppercase font-bold">Merk/Tipe</span>
                                                         <span className="block text-[7px] leading-tight truncate">{l.brand} {l.model}</span>
@@ -422,10 +643,8 @@
                                                     </div>
                                                 </div>
                                             </div>
-
-                                            {/* QR CODE AREA (KANAN) */}
-                                            <div className="shrink-0 flex flex-col items-center justify-center border-l-2 border-dotted border-gray-300 pl-1 w-20">
-                                                <canvas id={`lbl-qr-${i}`} className="w-18 h-18" style={{ width: '60px', height: '60px' }}></canvas>
+                                            <div className="shrink-0 flex flex-col items-center justify-center border-l-2 border-dotted border-gray-300 pl-1 w-14">
+                                                <canvas id={`lbl-qr-${i}`} style={{ width: '50px', height: '50px' }}></canvas>
                                             </div>
                                         </div>
                                     </div>
@@ -446,27 +665,30 @@
                     }
                 }, 300);
             }, [room]);
+
+            const downloadImage = async () => {
+                const element = document.getElementById("qr-card-container");
+                if(!element) return;
+                const canvas = await html2canvas(element, { scale: 3, useCORS: true });
+                const link = document.createElement('a');
+                link.download = `QR_Ruangan_${room.name}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+            };
             
             return (
                 <div className="space-y-4 animate-enter">
-                     <div className="flex justify-between items-center no-print bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                      <div className="flex justify-between items-center no-print bg-white p-4 rounded-lg shadow-sm border border-slate-200">
                         <h2 className="font-bold text-lg">Cetak QR Ruangan</h2>
                         <div className="flex gap-2">
                             <Button variant="outline" onClick={onBack}>Kembali</Button>
+                            <Button variant="outline" onClick={downloadImage}><Icon name="Download" size={16}/> Download Image</Button>
                             <Button onClick={()=>window.print()}>Print</Button>
                         </div>
                     </div>
                     
                     <div className="flex justify-center p-8 bg-white a4-page" id="print-area">
-                         <style>{`
-                            @media print {
-                                @page { size: A4; margin: 10mm; }
-                                .a4-page { width: 100%; height: auto; box-shadow: none; margin: 0; padding: 0; }
-                                 body { -webkit-print-color-adjust: exact; background: white; }
-                                .no-print, header, aside, .shadow-card { display: none !important; }
-                            }
-                        `}</style>
-                        <div className="border-4 border-black p-8 text-center max-w-md w-full h-fit self-center">
+                        <div id="qr-card-container" className="border-4 border-black p-8 text-center max-w-md w-full h-fit self-center bg-white">
                             <h2 className="text-2xl font-black mb-4 uppercase">KARTU INVENTARIS RUANGAN</h2>
                             <h3 className="text-xl font-bold mb-8">{room.name}</h3>
                             <div className="flex justify-center mb-8"><canvas id="room-qr-canvas" className="w-64 h-64"></canvas></div>
@@ -482,6 +704,8 @@
         };
 
         const PrintKirListView = ({ room, items, onBack, exportFn }) => {
+            const { appSettings } = useContext(AppContext);
+            
             return (
                 <div className="space-y-4 animate-enter">
                     <div className="flex justify-between items-center no-print bg-white p-4 rounded-lg shadow-sm border border-slate-200">
@@ -494,20 +718,13 @@
                     </div>
 
                     <div className="bg-white p-8 min-h-screen a4-page" id="kir-print-area">
-                        <style>{`
-                            @media print {
-                                @page { size: A4; margin: 10mm; }
-                                 body { -webkit-print-color-adjust: exact; background: white; }
-                                .no-print, header, aside, .shadow-card { display: none !important; }
-                            }
-                        `}</style>
                         <div className="text-center mb-6 border-b-2 border-black pb-4">
                             <h2 className="text-xl font-bold uppercase">PEMERINTAH PROVINSI JAMBI</h2>
                             <h3 className="text-lg font-bold">DINAS PENDIDIKAN</h3>
                             <h1 className="text-2xl font-black mt-2">KARTU INVENTARIS RUANGAN (KIR)</h1>
                         </div>
 
-                        <div className="flex justify-between mb-6 text-sm">
+                        <div className="flex justify-between mb-6 text-sm flex-col md:flex-row gap-4">
                             <table>
                                 <tbody>
                                     <tr><td className="w-32 font-bold">Provinsi</td><td>: Jambi</td></tr>
@@ -556,12 +773,12 @@
                             </tbody>
                         </table>
 
-                        <div className="flex justify-between mt-12 text-center break-inside-avoid">
+                        <div className="flex justify-between mt-12 text-center break-inside-avoid flex-col md:flex-row gap-8">
                             <div>
                                 <p>Mengetahui,</p>
-                                <p className="font-bold mb-16">Kepala Satpel</p>
+                                <p className="font-bold mb-16">{appSettings.headName}</p>
                                 <p className="font-bold underline">( ........................................ )</p>
-                                <p>NIP.</p>
+                                <p>NIP. {appSettings.headNip}</p>
                             </div>
                             <div>
                                 <p>Jambi, {new Date().toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
@@ -573,6 +790,43 @@
                     </div>
                 </div>
             );
+        };
+
+        const SettingsPage = () => {
+            const { appSettings, setAppSettings, syncData } = useContext(AppContext);
+            const [localForm, setLocalForm] = useState(appSettings);
+
+            const handleSave = () => {
+                setAppSettings(localForm);
+                syncData('SYNC_ALL'); // Trigger sync to save settings
+                alert("Pengaturan berhasil disimpan!");
+            };
+
+            return (
+                <div className="space-y-6 animate-enter">
+                    <h2 className="text-2xl font-bold text-slate-800">Pengaturan</h2>
+                    <Card className="p-6 max-w-2xl">
+                        <h3 className="font-bold text-lg mb-4 border-b pb-2">Pejabat Penandatangan</h3>
+                        <div className="space-y-6">
+                            <div>
+                                <h4 className="font-bold text-slate-600 mb-2">Administrasi BMN</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Nama</label><Input value={localForm.adminName} onChange={e => setLocalForm({...localForm, adminName: e.target.value})} /></div>
+                                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">NIP</label><Input value={localForm.adminNip} onChange={e => setLocalForm({...localForm, adminNip: e.target.value})} /></div>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-slate-600 mb-2">Kepala Satpel</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Nama</label><Input value={localForm.headName} onChange={e => setLocalForm({...localForm, headName: e.target.value})} /></div>
+                                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">NIP</label><Input value={localForm.headNip} onChange={e => setLocalForm({...localForm, headNip: e.target.value})} /></div>
+                                </div>
+                            </div>
+                            <Button onClick={handleSave} className="w-full">Simpan Pengaturan</Button>
+                        </div>
+                    </Card>
+                </div>
+            )
         };
 
         // --- DESKTOP HEADER ---
@@ -732,7 +986,7 @@
                                         <label className="text-[10px] font-bold text-slate-500 uppercase sm:hidden md:block">{def.label}:</label>
                                         <div className="relative">
                                             <select 
-                                                className="appearance-none h-7 w-full sm:w-28 pl-2 pr-6 rounded-lg border border-slate-200 bg-white text-[10px] font-medium text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all cursor-pointer py-1 small-text"
+                                                className="appearance-none h-10 sm:h-7 w-full sm:w-28 pl-2 pr-6 rounded-lg border border-slate-200 bg-white text-xs sm:text-[10px] font-medium text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all cursor-pointer py-1 small-text"
                                                 value={activeFilters[def.key] || 'all'}
                                                 onChange={e => handleFilterChange(def.key, e.target.value)}
                                             >
@@ -740,7 +994,7 @@
                                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                                                 ))}
                                             </select>
-                                            <Icon name="ChevronDown" className="absolute right-2 top-2 text-slate-400 pointer-events-none" size={12}/>
+                                            <Icon name="ChevronDown" className="absolute right-2 top-3 sm:top-2 text-slate-400 pointer-events-none" size={12}/>
                                         </div>
                                     </div>
                                 ))}
@@ -896,6 +1150,7 @@
                                         <span className="text-[10px] text-slate-400">{l.time}</span>
                                     </div>
                                 ))}
+                                {data.logs.length === 0 && <p className="text-sm text-slate-400 italic">Belum ada aktivitas.</p>}
                             </div>
                         </Card>
                     </div>
@@ -1383,250 +1638,18 @@
                 document.body.removeChild(fileDownload);
             };
 
-            const LabelView = () => {
-                // Pre-calculate flattened labels WITH sequence numbers
-                const allLabels = useMemo(() => {
-                    let labels = [];
-                    if(roomView && roomView.items) {
-                        roomView.items.forEach(ri => {
-                            const item = data.items.find(i => i.id === ri.itemId);
-                            if(item) {
-                                for(let i=1; i<=ri.qty; i++) {
-                                    labels.push({ 
-                                        ...item, 
-                                        num: i, 
-                                        total: ri.qty, 
-                                        seq: `${i}/${ri.qty}` 
-                                    });
-                                }
-                            }
-                        });
-                    }
-                    return labels;
-                }, [roomView, data.items]);
-
-                useEffect(() => {
-                    setTimeout(() => {
-                        allLabels.forEach((l, idx) => {
-                            const el = document.getElementById(`lbl-qr-${idx}`);
-                            if(el) new QRious({ element: el, value: `${window.location.origin}${window.location.pathname}#item-${l.id}`, size: 150 });
-                        });
-                    }, 500);
-                }, [allLabels]);
-
-                return (
-                    <div className="space-y-4 animate-enter">
-                         <div className="flex justify-between items-center no-print bg-white p-4 rounded-lg shadow-sm border border-slate-200">
-                            <h2 className="font-bold text-lg">Cetak Label BMN ({allLabels.length})</h2>
-                            <div className="flex gap-2">
-                                <Button variant="outline" onClick={()=>setSubView('room-detail')}>Kembali</Button>
-                                <Button onClick={()=>window.print()}>Print</Button>
-                            </div>
-                        </div>
-                        
-                        <div className="bg-white p-8 min-h-screen a4-page" id="print-area">
-                            <style>{`
-                                @media print {
-                                    @page { size: A4; margin: 5mm; } 
-                                    .label-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; row-gap: 12px; }
-                                    .label-card { border: 2px solid black; background: white; font-family: "Times New Roman", Times, serif; color: black; page-break-inside: avoid; height: fit-content; }
-                                    .label-card-inner { border: 1px solid black; margin: 2px; padding: 4px; display: flex; flex-direction: column; }
-                                    body { -webkit-print-color-adjust: exact; background: white; }
-                                    .no-print, header, aside, .shadow-card { display: none !important; }
-                                }
-                                .label-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-                                .label-card { border: 2px solid black; background: white; font-family: "Times New Roman", Times, serif; color: black; height: fit-content; }
-                                .label-card-inner { border: 1px solid black; margin: 2px; padding: 4px; display: flex; flex-direction: column; }
-                                @media (max-width: 768px) { .label-grid { grid-template-columns: repeat(1, 1fr); } }
-                            `}</style>
-                            
-                            <div className="label-grid">
-                                {allLabels.map((l, i) => (
-                                    <div key={i} className="label-card">
-                                        <div className="label-card-inner">
-                                            <div className="flex items-center gap-1 border-b-2 border-black pb-1 mb-1">
-                                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Lambang_Kementerian_Ketenagakerjaan_RI.png/600px-Lambang_Kementerian_Ketenagakerjaan_RI.png" alt="Logo" className="h-8 w-8 object-contain"/>
-                                                <div className="text-center flex-1 leading-none">
-                                                    <div className="text-[6px] font-bold uppercase tracking-wider">Barang Milik Negara</div>
-                                                    <div className="text-[7px] font-black uppercase tracking-tight my-0.5">Kementerian Ketenagakerjaan RI</div>
-                                                    <div className="text-[6px] font-bold uppercase">Satpel PVP Jambi</div>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex justify-between items-stretch">
-                                                <div className="flex-1 pr-1 space-y-1">
-                                                    <div>
-                                                        <div className="flex justify-between items-end">
-                                                            <span className="block text-[6px] text-gray-600 uppercase font-bold tracking-wider">Kode Barang</span>
-                                                            <span className="block text-[7px] font-black bg-black text-white px-1 rounded-sm">{l.seq}</span>
-                                                        </div>
-                                                        <span className="block text-[9px] font-bold font-mono tracking-tight bg-gray-100 px-1 border border-gray-400 inline-block w-full text-center mt-0.5">
-                                                            {l.code}
-                                                        </span>
-                                                    </div>
-
-                                                    <div>
-                                                        <span className="block text-[6px] text-gray-600 uppercase font-bold tracking-wider">Nama Barang</span>
-                                                        <span className="block text-[8px] font-bold leading-tight line-clamp-2">{l.name}</span>
-                                                    </div>
-
-                                                    <div className="flex gap-1 border-t border-gray-300 pt-0.5 mt-0.5">
-                                                        <div className="flex-1 min-w-0">
-                                                            <span className="block text-[6px] text-gray-600 uppercase font-bold">Merk/Tipe</span>
-                                                            <span className="block text-[7px] leading-tight truncate">{l.brand} {l.model}</span>
-                                                        </div>
-                                                        <div className="shrink-0 text-right">
-                                                            <span className="block text-[6px] text-gray-600 uppercase font-bold">Tahun</span>
-                                                            <span className="block text-[7px] font-bold">{l.year || '-'}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="shrink-0 flex flex-col items-center justify-center border-l-2 border-dotted border-gray-300 pl-1 w-20">
-                                                    <canvas id={`lbl-qr-${i}`} className="w-18 h-18" style={{ width: '60px', height: '60px' }}></canvas>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
-
-            const QrRoomView = () => {
-                useEffect(() => {
-                    setTimeout(() => {
-                        const canvas = document.getElementById('room-qr-canvas');
-                        if (canvas) {
-                            new QRious({ element: canvas, value: `${window.location.origin}${window.location.pathname}#room-${roomView.id}`, size: 256 });
-                        }
-                    }, 300);
-                }, []);
-                
-                return (
-                    <div className="space-y-4 animate-enter">
-                         <div className="flex justify-between items-center no-print bg-white p-4 rounded-lg shadow-sm border border-slate-200">
-                            <h2 className="font-bold text-lg">Cetak QR Ruangan</h2>
-                            <div className="flex gap-2">
-                                <Button variant="outline" onClick={()=>setSubView('room-detail')}>Kembali</Button>
-                                <Button onClick={()=>window.print()}>Print</Button>
-                            </div>
-                        </div>
-                        
-                        <div className="flex justify-center p-8 bg-white a4-page" id="print-area">
-                            <div className="border-4 border-black p-8 text-center max-w-md w-full h-fit self-center">
-                                <h2 className="text-2xl font-black mb-4 uppercase">KARTU INVENTARIS RUANGAN</h2>
-                                <h3 className="text-xl font-bold mb-8">{roomView.name}</h3>
-                                <div className="flex justify-center mb-8"><canvas id="room-qr-canvas" className="w-64 h-64"></canvas></div>
-                                <p className="font-mono text-sm">Scan untuk melihat daftar inventaris</p>
-                                <div className="mt-8 text-left text-sm border-t pt-4">
-                                    <p><b>Kode Ruangan:</b> {roomView.code}</p>
-                                    <p><b>PIC:</b> {roomView.pic}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )
-            };
-
-            const KIRListView = () => {
-                const roomItems = roomView.items.map(ri => {
-                    const item = data.items.find(i => i.id === ri.itemId);
-                    return { ...item, qtyInRoom: ri.qty };
-                }).filter(i => i.id);
-
-                return (
-                    <div className="space-y-4 animate-enter">
-                        <div className="flex justify-between items-center no-print bg-white p-4 rounded-lg shadow-sm border border-slate-200">
-                            <h2 className="font-bold text-lg">Cetak KIR (Daftar Barang)</h2>
-                            <div className="flex gap-2">
-                                <Button variant="outline" onClick={()=>setSubView('room-detail')}>Kembali</Button>
-                                <Button variant="outline" onClick={exportToWord}>Download Word</Button>
-                                <Button onClick={()=>window.print()}>Print</Button>
-                            </div>
-                        </div>
-
-                        <div className="bg-white p-8 min-h-screen a4-page" id="kir-print-area">
-                            <div className="text-center mb-6 border-b-2 border-black pb-4">
-                                <h2 className="text-xl font-bold uppercase">PEMERINTAH PROVINSI JAMBI</h2>
-                                <h3 className="text-lg font-bold">DINAS PENDIDIKAN</h3>
-                                <h1 className="text-2xl font-black mt-2">KARTU INVENTARIS RUANGAN (KIR)</h1>
-                            </div>
-
-                            <div className="flex justify-between mb-6 text-sm">
-                                <table>
-                                    <tbody>
-                                        <tr><td className="w-32 font-bold">Provinsi</td><td>: Jambi</td></tr>
-                                        <tr><td className="font-bold">Unit</td><td>: Satpel PVP Jambi</td></tr>
-                                        <tr><td className="font-bold">Ruangan</td><td>: {roomView.name}</td></tr>
-                                    </tbody>
-                                </table>
-                                <table>
-                                    <tbody>
-                                        <tr><td className="w-32 font-bold">Kode Ruangan</td><td>: {roomView.code}</td></tr>
-                                        <tr><td className="font-bold">Penanggung Jawab</td><td>: {roomView.pic}</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <table className="w-full border-collapse border border-black text-sm mb-8">
-                                <thead>
-                                    <tr className="bg-gray-100">
-                                        <th className="border border-black p-2 w-12 text-center">No</th>
-                                        <th className="border border-black p-2 text-left">Nama Barang</th>
-                                        <th className="border border-black p-2 text-left">Merk / Type</th>
-                                        <th className="border border-black p-2 w-24 text-center">Tahun</th>
-                                        <th className="border border-black p-2 w-16 text-center">Jumlah</th>
-                                        <th className="border border-black p-2 w-24 text-center">Satuan</th>
-                                        <th className="border border-black p-2 w-24 text-center">Kondisi</th>
-                                        <th className="border border-black p-2 text-left">Ket</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {roomItems.map((item, idx) => (
-                                        <tr key={idx}>
-                                            <td className="border border-black p-2 text-center">{idx + 1}</td>
-                                            <td className="border border-black p-2">
-                                                <div className="font-bold">{item.name}</div>
-                                                <div className="text-xs">{item.code}</div>
-                                            </td>
-                                            <td className="border border-black p-2">{item.brand} / {item.model}</td>
-                                            <td className="border border-black p-2 text-center">{item.year}</td>
-                                            <td className="border border-black p-2 text-center font-bold">{item.qtyInRoom}</td>
-                                            <td className="border border-black p-2 text-center">{item.unit || 'Unit'}</td>
-                                            <td className="border border-black p-2 text-center">Baik</td> 
-                                            <td className="border border-black p-2"></td>
-                                        </tr>
-                                    ))}
-                                    {roomItems.length === 0 && <tr><td colSpan="8" className="border border-black p-4 text-center italic">Tidak ada barang</td></tr>}
-                                </tbody>
-                            </table>
-
-                            <div className="flex justify-between mt-12 text-center break-inside-avoid">
-                                <div>
-                                    <p>Mengetahui,</p>
-                                    <p className="font-bold mb-16">Kepala Satpel</p>
-                                    <p className="font-bold underline">( ........................................ )</p>
-                                    <p>NIP.</p>
-                                </div>
-                                <div>
-                                    <p>Jambi, {new Date().toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
-                                    <p className="font-bold mb-16">Penanggung Jawab Ruangan</p>
-                                    <p className="font-bold underline">{roomView.pic}</p>
-                                    <p>NIP.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
-
             // Main View Logic
-            if (subView === 'label') return <LabelView />;
-            if (subView === 'qr') return <QrRoomView />;
-            if (subView === 'list') return <KIRListView />;
+            if (subView === 'label') return <PrintLabelView room={roomView} items={roomView.items.map(ri => {
+                    const item = data.items.find(i => i.id === ri.itemId);
+                    return { ...item, qty: ri.qty };
+                }).filter(i => i.id)} onBack={()=>setSubView('room-detail')} />;
+
+            if (subView === 'qr') return <PrintQrRoomView room={roomView} onBack={()=>setSubView('room-detail')} />;
+            
+            if (subView === 'list') return <PrintKirListView room={roomView} items={roomView.items.map(ri => {
+                const item = data.items.find(i => i.id === ri.itemId);
+                return { ...item, qtyInRoom: ri.qty };
+            }).filter(i => i.id)} onBack={()=>setSubView('room-detail')} exportFn={exportToWord}/>;
 
             if (roomView) {
                 return (
@@ -1707,6 +1730,15 @@
                 </div>
             );
         };
+
+        // --- PLACEHOLDER COMPONENTS FOR MISSING DEFINITIONS ---
+        // Added to prevent crashes as requested "don't remove features" implying "make it work"
+        const LoansView = ({ setView }) => <div className="p-4 text-center text-slate-500 bg-white rounded-lg shadow">Fitur Peminjaman (Placeholder)</div>;
+        const CreateLoan = ({ onBack, setView }) => <div className="p-4"><Button onClick={onBack}>Kembali</Button> Form Peminjaman</div>;
+        const MaintenanceView = () => <div className="p-4 text-center text-slate-500 bg-white rounded-lg shadow">Fitur Maintenance (Placeholder)</div>;
+        const QrInventoryView = ({id}) => <div className="p-4">Scan Ruangan: {id}</div>;
+        const QrItemView = ({id}) => <div className="p-4">Scan Barang: {id}</div>;
+
 
         const MainContent = () => {
             const [view, setView] = useState('dashboard');
