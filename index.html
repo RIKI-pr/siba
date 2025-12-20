@@ -113,6 +113,7 @@
                 X: <g><path d="M18 6 6 18"/><path d="m6 6 12 12"/></g>,
                 ChevronLeft: <path d="m15 18-6-6 6-6"/>,
                 ChevronRight: <path d="m9 18 6-6-6-6"/>,
+                ChevronDown: <path d="m6 9 6 6 6-6"/>,
                 Menu: <g><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></g>,
                 PanelLeft: <g><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></g>,
                 MapPin: <g><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></g>,
@@ -405,7 +406,12 @@
                         <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row gap-4 justify-between bg-white no-print">
                             <div className="relative flex-1 w-full md:max-w-md"><Icon name="Search" className="absolute left-3 top-3 text-slate-400" size={18}/><Input placeholder="Cari data..." className="pl-10 h-10 bg-slate-50 border-slate-200 focus:bg-white focus:border-primary w-full shadow-sm text-sm" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} /></div>
                             <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                                {filterDefs.map(def => (<div key={def.key} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2"><label className="text-[10px] font-bold text-slate-500 uppercase sm:hidden md:block">{def.label}:</label><div className="relative"><select className="appearance-none h-10 sm:h-7 w-full sm:w-28 pl-2 pr-6 rounded-lg border border-slate-200 bg-white text-xs sm:text-[10px] font-medium text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all cursor-pointer py-1 small-text" value={activeFilters[def.key] || 'all'} onChange={e => handleFilterChange(def.key, e.target.value)}>{def.options.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}</select><Icon name="ChevronDown" className="absolute right-2 top-3 sm:top-2 text-slate-400 pointer-events-none" size={12}/></div></div>))}
+                                {filterDefs.map(def => (<div key={def.key} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2"><label className="text-[10px] font-bold text-slate-500 uppercase sm:hidden md:block">{def.label}:</label>
+                                    <div className="relative">
+                                        <select className="appearance-none h-10 sm:h-7 w-full sm:w-28 pl-2 pr-6 rounded-lg border border-slate-200 bg-white text-xs sm:text-[10px] font-medium text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all cursor-pointer py-1 small-text" value={activeFilters[def.key] || 'all'} onChange={e => handleFilterChange(def.key, e.target.value)}>{def.options.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}</select>
+                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><Icon name="ChevronDown" size={12}/></div>
+                                    </div>
+                                </div>))}
                                 {actions}
                             </div>
                         </div>
@@ -413,7 +419,13 @@
                         {renderMobileItem && (<div className="md:hidden p-4 space-y-4 bg-slate-50">{paginatedData.map((row, idx) => (<div key={idx} onClick={() => onRowClick && onRowClick(row)}>{renderMobileItem(row)}</div>))}{paginatedData.length === 0 && <div className="text-center p-8 text-slate-400 bg-white rounded-xl border border-dashed">Tidak ada data ditemukan.</div>}</div>)}
                         <div className={cn("overflow-x-auto custom-scroll hidden", renderMobileItem ? "md:block" : "block")}><table className="w-full text-left text-sm min-w-full"><thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap"><tr>{columns.map((col, idx) => <th key={idx} className={cn("px-4 py-3 md:px-6 md:py-4", col.className)}>{col.header}</th>)}</tr></thead><tbody className="divide-y divide-slate-100 bg-white">{paginatedData.map((row, idx) => (<tr key={idx} onClick={() => onRowClick && onRowClick(row)} className={cn("hover:bg-slate-50 transition-colors group", onRowClick && "cursor-pointer")}>{columns.map((col, cIdx) => (<td key={cIdx} className={cn("px-4 py-3 md:px-6 md:py-3.5 text-sm align-top whitespace-nowrap", col.className)}>{col.render ? col.render(row) : (typeof col.accessor === 'function' ? col.accessor(row) : row[col.accessor])}</td>))}</tr>))}{paginatedData.length === 0 && <tr><td colSpan={columns.length} className="p-8 text-center text-slate-400 italic py-12">Tidak ada data ditemukan.</td></tr>}</tbody></table></div>
                         <div className="p-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 no-print">
-                            <div className="flex items-center gap-3"><span className="text-[10px] font-bold text-slate-500 uppercase">Tampilkan</span><div className="relative"><select className="appearance-none h-7 pl-2 pr-6 rounded-lg border border-slate-200 bg-white text-[10px] font-medium text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none cursor-pointer py-1 small-text" value={itemsPerPage} onChange={e => { setItemsPerPage(Number(e.target.value)); setPage(1); }}><option value={10}>10</option><option value={30}>30</option><option value={50}>50</option><option value={100}>100</option></select><Icon name="ChevronDown" className="absolute right-2 top-2 text-slate-400 pointer-events-none" size={12}/></div><span className="text-[10px] font-bold text-slate-500 uppercase">data. Hal {page} dari {totalPages || 1}</span></div>
+                            <div className="flex items-center gap-3"><span className="text-[10px] font-bold text-slate-500 uppercase">Tampilkan</span>
+                                <div className="relative">
+                                    <select className="appearance-none h-7 pl-2 pr-6 rounded-lg border border-slate-200 bg-white text-[10px] font-medium text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none cursor-pointer py-1 small-text" value={itemsPerPage} onChange={e => { setItemsPerPage(Number(e.target.value)); setPage(1); }}><option value={10}>10</option><option value={30}>30</option><option value={50}>50</option><option value={100}>100</option></select>
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><Icon name="ChevronDown" size={12}/></div>
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase">data. Hal {page} dari {totalPages || 1}</span>
+                            </div>
                             {totalPages > 1 && (<div className="flex justify-center gap-2"><Button variant="outline" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}><Icon name="ChevronLeft" size={16}/></Button><Button variant="outline" size="sm" onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages}><Icon name="ChevronRight" size={16}/></Button></div>)}
                         </div>
                     </Card>
@@ -467,7 +479,8 @@
                         condBad: 0,
                         status: "Tersedia",
                         locs: [],
-                        price: parseInt(form.price || 0)
+                        price: parseInt(form.price || 0),
+                        images: [] // Init empty images array
                     };
                     updatedItems = [newItem, ...data.items];
                     addLog("Create Item", `Menambahkan ${newItem.name}`);
@@ -500,6 +513,7 @@
                                         <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Merk (Brand)</label><Input placeholder="Samsung" value={form.brand || ''} onChange={e => setForm({...form, brand: e.target.value})} /></div>
                                         <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Model / Tipe</label><Input placeholder="Galaxy S23" value={form.model || ''} onChange={e => setForm({...form, model: e.target.value})} /></div>
                                     </div>
+                                    <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Deskripsi</label><textarea className="w-full px-3 py-2.5 rounded-md border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 bg-white" rows="3" placeholder="Deskripsi tambahan..." value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})}></textarea></div>
                                 </div>
                             </Card>
                             
@@ -513,9 +527,12 @@
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Satuan</label>
-                                        <select className="w-full px-3 py-2.5 rounded-md border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" value={form.unit || 'Unit'} onChange={e => setForm({...form, unit: e.target.value})}>
-                                            {UNIT_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                        </select>
+                                        <div className="relative">
+                                            <select className="w-full px-3 py-2.5 rounded-md border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary appearance-none" value={form.unit || 'Unit'} onChange={e => setForm({...form, unit: e.target.value})}>
+                                                {UNIT_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                            </select>
+                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><Icon name="ChevronDown" size={14}/></div>
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Tahun Perolehan</label>
@@ -558,10 +575,8 @@
                 
                 let newRooms;
                 if (initialData) {
-                    // Update existing room
                     newRooms = data.rooms.map(r => r.id === form.id ? { ...r, ...form } : r);
                 } else {
-                    // Create new room
                     newRooms = [...data.rooms, { ...form, id: Date.now(), items: [] }];
                 }
                 
@@ -687,6 +702,7 @@
         const InventoryDetail = ({ item, onBack, setView }) => {
             const { getItemLocations, updateData, data, syncData, addLog } = useContext(AppContext);
             const [tab, setTab] = useState('info');
+            const fileInputRef = useRef(null);
 
             if(!item) return null;
             const locs = getItemLocations(item.id);
@@ -698,12 +714,172 @@
                 }, 100); 
             }, [item, tab]);
 
+            const handleImageUpload = (e) => {
+                const files = Array.from(e.target.files);
+                if (!files.length) return;
+
+                const newImages = [];
+                let processed = 0;
+
+                files.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        newImages.push(reader.result);
+                        processed++;
+                        if(processed === files.length) {
+                             const updatedItem = { ...item, images: [...(item.images || []), ...newImages] };
+                             const updatedList = data.items.map(i => i.id === item.id ? updatedItem : i);
+                             updateData('items', updatedList);
+                             syncData('SYNC_ALL', { ...data, items: updatedList });
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                });
+            };
+
+            const removeImage = (idx) => {
+                 if(!confirm("Hapus foto ini?")) return;
+                 const updatedImages = item.images.filter((_, i) => i !== idx);
+                 const updatedItem = { ...item, images: updatedImages };
+                 const updatedList = data.items.map(i => i.id === item.id ? updatedItem : i);
+                 updateData('items', updatedList);
+                 syncData('SYNC_ALL', { ...data, items: updatedList });
+            };
+
             return (
                 <div className="space-y-6 animate-enter">
                     <div className="flex items-center justify-between gap-4"><div className="flex items-center gap-4"><Button variant="outline" className="px-3" onClick={onBack}><Icon name="ArrowLeft" size={18}/></Button><div><h2 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">{item.name}</h2><p className="text-slate-500 font-mono text-sm">{item.code}</p></div></div><Button variant="secondary" className="border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100" onClick={() => setView('inventory-edit')}><Icon name="Edit" size={16}/> <span className="hidden sm:inline">Edit Barang</span></Button></div>
                     <div className="flex gap-4 border-b border-slate-200 overflow-x-auto">{['info', 'history', 'docs'].map(t => (<button key={t} onClick={()=>setTab(t)} className={cn("pb-3 px-2 font-bold border-b-2 capitalize transition-all whitespace-nowrap", tab===t ? "border-primary text-primary" : "border-transparent text-slate-500")}>{t === 'info' ? 'Ringkasan' : t === 'history' ? 'Riwayat' : 'Dokumentasi'}</button>))}</div>
-                    {tab === 'info' && (<div className="grid grid-cols-1 md:grid-cols-3 gap-6"><Card className="p-6 space-y-4"><h3 className="font-bold border-b pb-2">Spesifikasi</h3><div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm"><div><p className="text-xs text-slate-400 font-bold uppercase">Kode</p><p>{item.code}</p></div><div><p className="text-xs text-slate-400 font-bold uppercase">Tahun</p><p>{item.year || '-'}</p></div><div className="col-span-2"><p className="text-xs text-slate-400 font-bold uppercase">Model</p><p>{item.model || "-"}</p></div><div className="col-span-2"><p className="text-xs text-slate-400 font-bold uppercase">Harga</p><p>{formatCurrency(item.price || 0)}</p></div></div><div className="pt-4 border-t flex flex-col items-center"><canvas id="item-qr-details" className="bg-white p-2 border rounded"></canvas><p className="text-xs text-slate-400 mt-1">Scan untuk detail</p></div></Card><Card className="md:col-span-2 p-6"><h3 className="font-bold border-b pb-2 mb-4">Sebaran Lokasi</h3>{locs.length > 0 ? (<div className="space-y-2">{locs.map((l, i) => (<div key={i} className="flex justify-between p-3 border rounded-lg items-center"><span className="font-medium text-sm sm:text-base">{l.name}</span><Badge variant="primary">{l.qty} Unit</Badge></div>))}</div>) : <p className="text-slate-400 italic text-sm">Belum ditempatkan di ruangan manapun.</p>}</Card></div>)}
-                    {tab === 'history' && (<Card className="p-6"><h3 className="font-bold mb-4">Riwayat Pergerakan</h3><div className="space-y-3">{item.logs && item.logs.map((l,i)=>(<div key={i} className="flex flex-col sm:flex-row gap-1 sm:gap-4 border-b pb-2"><span className="text-xs font-mono text-slate-500 min-w-[140px]">{l.date}</span><span className="text-sm">{l.action}</span></div>))}</div></Card>)}
+                    
+                    {tab === 'info' && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <Card className="p-6 space-y-4">
+                                <h3 className="font-bold border-b pb-2">Spesifikasi Detail</h3>
+                                <div className="space-y-3 text-sm">
+                                    <div className="flex justify-between border-b border-dashed pb-2">
+                                        <span className="text-slate-500">Kode Barang</span>
+                                        <span className="font-mono font-medium text-slate-800">{item.code}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-dashed pb-2">
+                                        <span className="text-slate-500">Kategori</span>
+                                        <span className="font-medium text-slate-800">{item.category || "-"}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-dashed pb-2">
+                                        <span className="text-slate-500">Merk / Brand</span>
+                                        <span className="font-medium text-slate-800">{item.brand || "-"}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-dashed pb-2">
+                                        <span className="text-slate-500">Model / Tipe</span>
+                                        <span className="font-medium text-slate-800">{item.model || "-"}</span>
+                                    </div>
+                                     <div className="flex justify-between border-b border-dashed pb-2">
+                                        <span className="text-slate-500">Tahun Perolehan</span>
+                                        <span className="font-medium text-slate-800">{item.year || "-"}</span>
+                                    </div>
+                                     <div className="flex justify-between pb-2">
+                                        <span className="text-slate-500">Harga Satuan</span>
+                                        <span className="font-medium text-slate-800">{formatCurrency(item.price || 0)}</span>
+                                    </div>
+                                </div>
+                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                    <p className="text-xs font-bold text-slate-400 uppercase mb-2">Deskripsi</p>
+                                    <p className="text-sm text-slate-600 leading-relaxed">{item.description || "Tidak ada deskripsi tambahan."}</p>
+                                </div>
+                                <div className="pt-4 border-t flex flex-col items-center">
+                                    <canvas id="item-qr-details" className="bg-white p-2 border rounded"></canvas>
+                                    <p className="text-xs text-slate-400 mt-1">Scan untuk detail</p>
+                                </div>
+                            </Card>
+                            <div className="md:col-span-2 space-y-6">
+                                <Card className="p-6">
+                                    <h3 className="font-bold border-b pb-2 mb-4">Statistik Kondisi</h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex items-center gap-3">
+                                            <div className="p-2 bg-white rounded-lg text-emerald-600 shadow-sm"><Icon name="CheckCircle" size={24}/></div>
+                                            <div>
+                                                <p className="text-2xl font-bold text-emerald-700">{item.condGood || 0}</p>
+                                                <p className="text-xs text-emerald-600 font-medium">Kondisi Baik</p>
+                                            </div>
+                                        </div>
+                                        <div className="bg-red-50 p-4 rounded-xl border border-red-100 flex items-center gap-3">
+                                            <div className="p-2 bg-white rounded-lg text-red-600 shadow-sm"><Icon name="AlertCircle" size={24}/></div>
+                                            <div>
+                                                <p className="text-2xl font-bold text-red-700">{item.condBad || 0}</p>
+                                                <p className="text-xs text-red-600 font-medium">Kondisi Rusak</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Card>
+                                <Card className="p-6">
+                                    <h3 className="font-bold border-b pb-2 mb-4">Sebaran Lokasi</h3>
+                                    {locs.length > 0 ? (
+                                        <div className="space-y-2">
+                                            {locs.map((l, i) => (
+                                                <div key={i} className="flex justify-between p-3 border rounded-lg items-center hover:bg-slate-50 transition-colors">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded flex items-center justify-center font-bold text-xs">{i+1}</div>
+                                                        <span className="font-medium text-sm sm:text-base">{l.name}</span>
+                                                    </div>
+                                                    <Badge variant="primary">{l.qty} Unit</Badge>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : <div className="text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-300 text-slate-400 italic">Belum ditempatkan di ruangan manapun.</div>}
+                                </Card>
+                            </div>
+                        </div>
+                    )}
+
+                    {tab === 'history' && (
+                         <Card className="p-6">
+                             <h3 className="font-bold mb-6">Jejak Riwayat Aset</h3>
+                             <div className="relative border-l-2 border-slate-200 ml-3 space-y-8">
+                                {item.logs && item.logs.length > 0 ? item.logs.map((l,i)=>(
+                                    <div key={i} className="relative pl-8">
+                                        <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-2 border-primary"></div>
+                                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
+                                            <div>
+                                                <p className="text-sm font-bold text-slate-800">{l.action}</p>
+                                                <p className="text-xs text-slate-600 mt-1 bg-slate-50 p-2 rounded inline-block">{l.desc || "Perubahan data tercatat sistem."}</p>
+                                            </div>
+                                            <span className="text-[10px] font-mono text-slate-400 whitespace-nowrap mt-1 sm:mt-0">{l.date || new Date().toLocaleDateString()}</span>
+                                        </div>
+                                    </div>
+                                )) : <p className="pl-8 text-sm text-slate-400 italic">Belum ada riwayat tercatat.</p>}
+                             </div>
+                         </Card>
+                    )}
+
+                    {tab === 'docs' && (
+                        <Card className="p-6">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="font-bold text-lg">Galeri Dokumentasi</h3>
+                                <Button size="sm" onClick={() => fileInputRef.current.click()}><Icon name="Upload" size={16}/> Tambah Foto</Button>
+                                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleImageUpload} />
+                            </div>
+                            
+                            {item.images && item.images.length > 0 ? (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {item.images.map((img, idx) => (
+                                        <div key={idx} className="group relative aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                                            <img src={img} alt={`Dokumentasi ${idx+1}`} className="w-full h-full object-cover" />
+                                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <button onClick={() => removeImage(idx)} className="p-2 bg-white text-red-500 rounded-full hover:bg-red-50 transition-colors">
+                                                    <Icon name="Trash" size={20} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-12 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+                                    <div className="mx-auto w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 mb-3"><Icon name="Image" size={24}/></div>
+                                    <h4 className="font-medium text-slate-600">Belum ada dokumentasi</h4>
+                                    <p className="text-xs text-slate-400 mt-1">Upload foto fisik barang untuk inventarisasi visual</p>
+                                </div>
+                            )}
+                        </Card>
+                    )}
                 </div>
             );
         };
