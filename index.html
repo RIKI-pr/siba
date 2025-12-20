@@ -442,30 +442,40 @@
         };
 
         // --- NEW COMPONENT: InventoryCreate (Page) ---
-        const InventoryCreate = ({ onBack }) => {
+        const InventoryCreate = ({ onBack, initialData = null }) => {
             const { data, updateData, addLog, syncData } = useContext(AppContext);
-            const [form, setForm] = useState({ unit: 'Unit', year: new Date().getFullYear(), qty: 0 });
+            const [form, setForm] = useState(initialData || { unit: 'Unit', year: new Date().getFullYear(), qty: 0 });
 
             const handleSave = () => {
-                if (!form.name || !form.code || !form.qty) {
+                if (!form.name || !form.code || (form.qty === undefined || form.qty === null)) {
                     alert("Harap lengkapi nama barang, kode barang, dan jumlah!");
                     return;
                 }
-                const newItem = {
-                    ...form,
-                    id: Date.now(),
-                    stock: parseInt(form.qty || 0),
-                    condGood: parseInt(form.qty || 0),
-                    condBad: 0,
-                    status: "Tersedia",
-                    locs: [],
-                    price: parseInt(form.price || 0)
-                };
-                const updatedItems = [newItem, ...data.items];
+
+                let updatedItems;
+                if (initialData) {
+                    // Update Logic
+                    updatedItems = data.items.map(item => item.id === form.id ? form : item);
+                    addLog("Update Item", `Memperbarui ${form.name}`);
+                } else {
+                    // Create Logic
+                    const newItem = {
+                        ...form,
+                        id: Date.now(),
+                        stock: parseInt(form.qty || 0),
+                        condGood: parseInt(form.qty || 0),
+                        condBad: 0,
+                        status: "Tersedia",
+                        locs: [],
+                        price: parseInt(form.price || 0)
+                    };
+                    updatedItems = [newItem, ...data.items];
+                    addLog("Create Item", `Menambahkan ${newItem.name}`);
+                }
+
                 updateData('items', updatedItems);
-                addLog("Create Item", `Menambahkan ${newItem.name}`);
                 syncData('SYNC_ALL', { ...data, items: updatedItems });
-                alert("Data barang berhasil disimpan!");
+                alert(initialData ? "Data barang berhasil diperbarui!" : "Data barang berhasil disimpan!");
                 onBack();
             };
 
@@ -473,7 +483,7 @@
                 <div className="space-y-6 animate-enter pb-10">
                     <div className="flex items-center gap-4">
                         <Button variant="outline" className="px-3" onClick={onBack}><Icon name="ArrowLeft" size={18}/></Button>
-                        <h2 className="text-2xl font-bold text-slate-900">Tambah Barang Baru</h2>
+                        <h2 className="text-2xl font-bold text-slate-900">{initialData ? 'Edit Data Barang' : 'Tambah Barang Baru'}</h2>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -498,8 +508,8 @@
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Jumlah Awal <span className="text-red-500">*</span></label>
-                                        <Input type="number" placeholder="0" value={form.qty} onChange={e => setForm({...form, qty: e.target.value})} />
-                                        <p className="text-[10px] text-slate-400 mt-1">Otomatis masuk kondisi 'Baik'</p>
+                                        <Input type="number" placeholder="0" value={form.qty} onChange={e => setForm({...form, qty: parseInt(e.target.value) || 0})} />
+                                        {!initialData && <p className="text-[10px] text-slate-400 mt-1">Otomatis masuk kondisi 'Baik'</p>}
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Satuan</label>
@@ -516,14 +526,20 @@
                                     <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Harga Satuan (Rp)</label>
                                     <Input type="number" placeholder="Rp 0" value={form.price} onChange={e => setForm({...form, price: e.target.value})} />
                                 </div>
+                                {initialData && (
+                                    <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-100">
+                                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Kondisi Baik</label><Input type="number" value={form.condGood || 0} onChange={e => setForm({...form, condGood: parseInt(e.target.value) || 0})} /></div>
+                                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Kondisi Rusak</label><Input type="number" value={form.condBad || 0} onChange={e => setForm({...form, condBad: parseInt(e.target.value) || 0})} /></div>
+                                    </div>
+                                )}
                             </Card>
                         </div>
                         
                         <div className="lg:col-span-1 space-y-6">
                              <Card className="p-6 bg-slate-50 border-slate-200">
-                                <h3 className="font-bold text-lg mb-4 text-slate-800">Ringkasan</h3>
+                                <h3 className="font-bold text-lg mb-4 text-slate-800">Aksi</h3>
                                 <p className="text-sm text-slate-600 mb-4">Pastikan data yang Anda masukkan sudah benar sebelum menyimpan.</p>
-                                <Button className="w-full h-12 text-lg shadow-lg mb-3" onClick={handleSave}><Icon name="Save" /> Simpan Barang</Button>
+                                <Button className="w-full h-12 text-lg shadow-lg mb-3" onClick={handleSave}><Icon name="Save" /> {initialData ? 'Simpan Perubahan' : 'Simpan Barang'}</Button>
                                 <Button variant="secondary" className="w-full" onClick={onBack}>Batal</Button>
                             </Card>
                         </div>
@@ -668,40 +684,26 @@
             );
         };
 
-        const InventoryDetail = ({ item, onBack }) => {
+        const InventoryDetail = ({ item, onBack, setView }) => {
             const { getItemLocations, updateData, data, syncData, addLog } = useContext(AppContext);
             const [tab, setTab] = useState('info');
-            const [isEditing, setIsEditing] = useState(false);
-            const [editForm, setEditForm] = useState({});
 
             if(!item) return null;
             const locs = getItemLocations(item.id);
 
-            useEffect(() => { if (item) setEditForm({ ...item }); }, [item]);
-            useEffect(() => { if (item && !isEditing) { setTimeout(() => { const canvas = document.getElementById('item-qr-details'); if (canvas) new QRious({ element: canvas, value: `${window.location.origin}${window.location.pathname}#item-${item.id}`, size: 128 }); }, 100); } }, [item, isEditing, tab]);
-
-            const handleUpdate = () => {
-                const updatedItem = { ...editForm, stock: parseInt(editForm.stock || 0), condGood: parseInt(editForm.condGood || 0), condBad: parseInt(editForm.condBad || 0), price: parseInt(editForm.price || 0) };
-                const updatedList = data.items.map(i => i.id === item.id ? updatedItem : i);
-                updateData('items', updatedList); addLog("Update Item", `Mengubah data ${updatedItem.name}`); syncData('SYNC_ALL', { ...data, items: updatedList }); setIsEditing(false); alert("Data berhasil diperbarui. Silakan buka ulang detail untuk melihat perubahan."); onBack();
-            };
+            useEffect(() => { 
+                setTimeout(() => { 
+                    const canvas = document.getElementById('item-qr-details'); 
+                    if (canvas) new QRious({ element: canvas, value: `${window.location.origin}${window.location.pathname}#item-${item.id}`, size: 128 }); 
+                }, 100); 
+            }, [item, tab]);
 
             return (
                 <div className="space-y-6 animate-enter">
-                    <div className="flex items-center justify-between gap-4"><div className="flex items-center gap-4"><Button variant="outline" className="px-3" onClick={onBack}><Icon name="ArrowLeft" size={18}/></Button><div><h2 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">{item.name}</h2><p className="text-slate-500 font-mono text-sm">{item.code}</p></div></div><Button variant="secondary" className="border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100" onClick={() => setIsEditing(true)}><Icon name="Edit" size={16}/> <span className="hidden sm:inline">Edit Barang</span></Button></div>
+                    <div className="flex items-center justify-between gap-4"><div className="flex items-center gap-4"><Button variant="outline" className="px-3" onClick={onBack}><Icon name="ArrowLeft" size={18}/></Button><div><h2 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">{item.name}</h2><p className="text-slate-500 font-mono text-sm">{item.code}</p></div></div><Button variant="secondary" className="border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100" onClick={() => setView('inventory-edit')}><Icon name="Edit" size={16}/> <span className="hidden sm:inline">Edit Barang</span></Button></div>
                     <div className="flex gap-4 border-b border-slate-200 overflow-x-auto">{['info', 'history', 'docs'].map(t => (<button key={t} onClick={()=>setTab(t)} className={cn("pb-3 px-2 font-bold border-b-2 capitalize transition-all whitespace-nowrap", tab===t ? "border-primary text-primary" : "border-transparent text-slate-500")}>{t === 'info' ? 'Ringkasan' : t === 'history' ? 'Riwayat' : 'Dokumentasi'}</button>))}</div>
                     {tab === 'info' && (<div className="grid grid-cols-1 md:grid-cols-3 gap-6"><Card className="p-6 space-y-4"><h3 className="font-bold border-b pb-2">Spesifikasi</h3><div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm"><div><p className="text-xs text-slate-400 font-bold uppercase">Kode</p><p>{item.code}</p></div><div><p className="text-xs text-slate-400 font-bold uppercase">Tahun</p><p>{item.year || '-'}</p></div><div className="col-span-2"><p className="text-xs text-slate-400 font-bold uppercase">Model</p><p>{item.model || "-"}</p></div><div className="col-span-2"><p className="text-xs text-slate-400 font-bold uppercase">Harga</p><p>{formatCurrency(item.price || 0)}</p></div></div><div className="pt-4 border-t flex flex-col items-center"><canvas id="item-qr-details" className="bg-white p-2 border rounded"></canvas><p className="text-xs text-slate-400 mt-1">Scan untuk detail</p></div></Card><Card className="md:col-span-2 p-6"><h3 className="font-bold border-b pb-2 mb-4">Sebaran Lokasi</h3>{locs.length > 0 ? (<div className="space-y-2">{locs.map((l, i) => (<div key={i} className="flex justify-between p-3 border rounded-lg items-center"><span className="font-medium text-sm sm:text-base">{l.name}</span><Badge variant="primary">{l.qty} Unit</Badge></div>))}</div>) : <p className="text-slate-400 italic text-sm">Belum ditempatkan di ruangan manapun.</p>}</Card></div>)}
                     {tab === 'history' && (<Card className="p-6"><h3 className="font-bold mb-4">Riwayat Pergerakan</h3><div className="space-y-3">{item.logs && item.logs.map((l,i)=>(<div key={i} className="flex flex-col sm:flex-row gap-1 sm:gap-4 border-b pb-2"><span className="text-xs font-mono text-slate-500 min-w-[140px]">{l.date}</span><span className="text-sm">{l.action}</span></div>))}</div></Card>)}
-                    <Modal isOpen={isEditing} onClose={() => setIsEditing(false)} title="Edit Barang">
-                        <div className="space-y-4">
-                            <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Nama Barang</label><Input value={editForm.name || ''} onChange={e => setEditForm({...editForm, name: e.target.value})} /></div>
-                            <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Kode</label><Input value={editForm.code || ''} onChange={e => setEditForm({...editForm, code: e.target.value})} /></div><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Stok Total</label><div className="flex gap-2"><Input type="number" value={editForm.stock || ''} onChange={e => setEditForm({...editForm, stock: e.target.value})} className="flex-1" /><select className="w-24 px-2 py-2.5 rounded-md border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" value={editForm.unit || 'Unit'} onChange={e => setEditForm({...editForm, unit: e.target.value})}>{UNIT_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></div></div></div>
-                             <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Brand</label><Input value={editForm.brand || ''} onChange={e => setEditForm({...editForm, brand: e.target.value})} /></div><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Model</label><Input value={editForm.model || ''} onChange={e => setEditForm({...editForm, model: e.target.value})} /></div></div>
-                            <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Kondisi Baik</label><Input type="number" value={editForm.condGood || ''} onChange={e => setEditForm({...editForm, condGood: e.target.value})} /></div><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Kondisi Rusak</label><Input type="number" value={editForm.condBad || ''} onChange={e => setEditForm({...editForm, condBad: e.target.value})} /></div></div>
-                            <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Tahun</label><Input type="number" value={editForm.year || ''} onChange={e => setEditForm({...editForm, year: e.target.value})} /></div><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Harga</label><Input type="number" value={editForm.price || ''} onChange={e => setEditForm({...editForm, price: e.target.value})} /></div></div>
-                            <Button className="w-full mt-4" onClick={handleUpdate}>Simpan Perubahan</Button>
-                        </div>
-                    </Modal>
                 </div>
             );
         };
@@ -962,6 +964,7 @@
                                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Aksi</h4>
                                     <Button onClick={()=>window.print()} className="w-full justify-between group h-11"><span className="font-bold">Print / Cetak</span><Icon name="Printer" size={18} className="group-hover:scale-110 transition-transform"/></Button>
                                     <Button variant="outline" onClick={downloadPDF} disabled={isGenerating} className="w-full justify-between group h-11"><span>{isGenerating ? 'Memproses...' : 'Download Gambar (PNG)'}</span><Icon name="Download" size={18} className="group-hover:scale-110 transition-transform text-red-500"/></Button>
+                                    <Button variant="outline" onClick={exportToWord} disabled={isGenerating} className="w-full justify-between group h-11"><span>{isGenerating ? 'Memproses...' : 'Download Word'}</span><Icon name="FileText" size={18} className="group-hover:scale-110 transition-transform text-blue-600"/></Button>
                                 </div>
                             </div>
                         </div>
@@ -1171,15 +1174,15 @@
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {data.rooms.map(r => (
                             <div key={r.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg transition-all group cursor-pointer" onClick={() => setRoomView(r)}>
-                                <div className="p-5">
-                                    <div className="flex justify-between items-start mb-4">
+                                <div className="p-4 pb-2">
+                                    <div className="flex justify-between items-start mb-2">
                                         <div className="flex items-center gap-3">
                                             {/* Icon Box */}
                                             <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center shrink-0">
                                                 <Icon name="Building" size={24} />
                                             </div>
                                             <div>
-                                                <h3 className="font-bold text-lg text-slate-800 leading-tight line-clamp-1">{r.name}</h3>
+                                                <h3 className="font-bold text-lg text-slate-900 leading-tight line-clamp-1">{r.name}</h3>
                                                 <span className="inline-block px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded mt-1">{r.code || 'NO CODE'}</span>
                                             </div>
                                         </div>
@@ -1191,7 +1194,7 @@
                                     </div>
                                     
                                     {/* Details */}
-                                    <div className="space-y-2 mb-4">
+                                    <div className="space-y-2 mb-2">
                                         <div className="flex items-center gap-2 text-xs text-slate-600">
                                             <Icon name="User" size={14} className="text-slate-400"/>
                                             <span className="truncate">{r.pic || 'Belum ada PIC'}</span>
@@ -1206,7 +1209,7 @@
                                 </div>
                                 
                                 {/* Footer / Stats */}
-                                <div className="bg-slate-50 px-5 py-3 border-t border-slate-100 flex justify-between items-center text-xs">
+                                <div className="bg-slate-50 px-4 py-2 border-t border-slate-100 flex justify-between items-center text-xs">
                                     <span className="text-slate-500">Total Aset</span>
                                     <span className="font-bold text-slate-800 bg-white px-2 py-1 rounded border border-slate-200 shadow-sm">{r.items.length} Item</span>
                                 </div>
